@@ -1,0 +1,12 @@
+{
+    "name": "MCP Router using LangGraph",
+    "version": "1.0.0",
+    "python_version": "3.12",
+    "dependencies": ["."],
+    "graphs": {
+      "build_router": "./src/langgraph_mcp/build_router_graph.py:graph",
+      "route": "./src/langgraph_mcp/router_graph.py:graph"
+    },
+    "env": ".env"
+  }
+  

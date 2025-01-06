@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+        "weather": {
+            "command": "uv",
+            "args": [
+                "--directory",
+                "/Users/pdhoolia/fun/weather_service",
+                "run",
+                "weather-service"
+            ]
+        },
+        "sqlite": {
+            "command": "uvx",
+            "args": [
+                "mcp-server-sqlite",
+                "--db-path",
+                "/Users/pdhoolia/test.db"
+            ]
+        }
+    }
+}
