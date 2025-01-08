@@ -31,8 +31,7 @@ def make_milvus_retriever(
 
     vstore = Milvus (
         embedding_function=embedding_model,
-        connection_args={"uri": os.environ["MILVUS_DB"]},
-        auto_id=True
+        connection_args={"uri": os.environ["MILVUS_DB"]}
     )
     yield vstore.as_retriever()
 

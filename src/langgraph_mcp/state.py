@@ -96,3 +96,5 @@ class State(InputState):
 
     retrieved_docs: list[Document] = field(default_factory=list)
     """Populated by the retriever. This is a list of documents that the agent can reference."""
+
+    current_mcp_server: str = field(default="")

@@ -1,108 +1,77 @@
 import asyncio
-import json
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
 
 from langgraph_mcp.configuration import Configuration
-from langgraph_mcp.routing_utils import generate_routing_instructions
+from langgraph_mcp.mcp_wrapper import MCPServerWrapper
 from langgraph_mcp.retriever import make_retriever
 from langgraph_mcp.state import BuilderState
 
-async def collect_server_info(name: str, config: dict, server_infos: dict):
+
+async def build_router(state: BuilderState, *, config: RunnableConfig):
+    """
+    Build the router by gathering routing descriptions from MCP servers and storing them in the retriever.
+
+    Parameters:
+        state (BuilderState): The current state of the router builder.
+        config (RunnableConfig): The configuration for the router builder.
+
+    Returns:
+        dict: Status of the build process.
+    """
+    status = "failure"
+    configuration = Configuration.from_runnable_config(config)
+    mcp_servers = configuration.mcp_server_config["mcpServers"]
+
+    try:
+        # Gather routing descriptions directly without a shared dictionary
+        routing_descriptions = await asyncio.gather(
+            *[
+                get_mcp_server_routing_description(server_name, server_config)
+                for server_name, server_config in mcp_servers.items()
+            ]
+        )
+
+        # Create documents from the gathered descriptions
+        documents = [
+            Document(page_content=description, metadata={"id": server_name})
+            for server_name, description in routing_descriptions
+        ]
+
+        # Store the documents in the retriever
+        with make_retriever(config) as retriever:
+            if configuration.retriever_provider == "milvus":
+                retriever.add_documents(documents, ids=[doc.metadata["id"] for doc in documents])
+            else:
+                await retriever.aadd_documents(documents)
+
+        status = "success"
+    except Exception as e:
+        print(f"Exception in run: {e}")
+
+    return {"status": status}
+
+async def get_mcp_server_routing_description(server_name: str, server_config: dict) -> tuple:
     """
     Collect information about a single MCP server.
 
     Parameters:
-        name (str): The name of the server.
-        config (dict): The server's configuration.
-        server_infos (dict): Shared dictionary to store information about all servers.
+        server_name (str): The name of the server.
+        server_config (dict): The server's configuration.
+
+    Returns:
+        tuple: A tuple containing the server name and its routing description.
     """
-    server_params = StdioServerParameters(
-        command=config["command"],
-        args=config["args"],
-        env=config.get("env")  # Use None to let default_environment be built
-    )
-    print(f"Starting session. (server: {name})")
     try:
-        async with stdio_client(server_params) as (read, write):
-            async with ClientSession(read, write) as session:
-                # Initialize the connection
-                await session.initialize()
-                print(f"Session initialized: {name}")
-
-                # Collect information from the server
-                try:
-                    tools = await session.list_tools()
-                except Exception as e:
-                    print(f"Failed to fetch tools from server '{name}': {e}")
-                    tools = None
-
-                try:
-                    prompts = await session.list_prompts()
-                except Exception as e:
-                    print(f"Failed to fetch prompts from server '{name}': {e}")
-                    prompts = None
-
-                try:
-                    resources = await session.list_resources()
-                except Exception as e:
-                    print(f"Failed to fetch resources from server '{name}': {e}")
-                    resources = None
-
-                # Store collected data in the shared dictionary
-                server_infos[name] = {
-                    "tools": tools,
-                    "prompts": prompts,
-                    "resources": resources,
-                }
+        mcp_server_wrapper = await MCPServerWrapper.create(server_name, server_config)
+        return server_name, mcp_server_wrapper.generate_routing_description()
     except asyncio.CancelledError:
-        print(f"Shutting down session. (server: {name})")
+        print(f"Shutting down session. (server: {server_name})")
+        raise
     except Exception as e:
-        print(f"Exception: {e} (server: {name})")
-
-async def build_router(state: BuilderState, *, config: RunnableConfig):
-    status = "failure"
-    configuration = Configuration.from_runnable_config(config)
-    mcp_servers = configuration.mcp_server_config["mcpServers"]
-    
-    # Shared dictionary to collect information about all the MCP servers
-    server_infos = {}
-
-    # Create tasks for each server
-    tasks = [
-        asyncio.create_task(collect_server_info(name, server_config, server_infos))
-        for name, server_config in mcp_servers.items()
-    ]
-    print("All server tasks created. Starting asyncio.gather...")
-    try:
-        # Wait for all tasks to complete
-        await asyncio.gather(*tasks)
-
-        # Build a router using the collected server information
-        print("Building a router...")
-        # Generate routing instructions from MCP server information (prompts, tools, resources)
-        routing_instructions = generate_routing_instructions(server_infos)
-        # Create documents from the routing instructions
-        documents = [
-            Document(page_content=content, metadata={"id": server_name})
-            for server_name, content in routing_instructions.items()
-        ]
-        with make_retriever(config) as retriever:
-            if configuration.retriever_provider == "milvus":
-                retriever.add_documents(documents)
-            else:
-                await retriever.aadd_documents(documents)
-        status = "success"
-    except Exception as e:
-        print(f"Exception in run: {e}")
-    finally:
-        print(f"MCP Servers Info: {json.dumps(routing_instructions, indent=2)}")
-    
-    return {"status": status}
-
+        print(f"Exception: {e} (server: {server_name})")
+        return server_name, None
 
 builder = StateGraph(state_schema=BuilderState, config_schema=Configuration)
 builder.add_node(build_router)

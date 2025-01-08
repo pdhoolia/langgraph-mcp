@@ -6,13 +6,17 @@ from langchain_core.messages import BaseMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, START, END
 
 from langgraph_mcp.configuration import Configuration
+from langgraph_mcp.mcp_wrapper import MCPServerWrapper
 from langgraph_mcp.retriever import make_retriever
 from langgraph_mcp.state import InputState, State
-from langgraph_mcp.utils import get_message_text, load_chat_model
+from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
+from contextvars import ContextVar
 
+
+##################  MCP Server Router: Sub-graph Components  ###################
 
 class SearchQuery(BaseModel):
     """Search the indexed documents for a query."""
@@ -71,7 +75,6 @@ async def generate_routing_query(
             "queries": [generated.query],
         }
 
-
 async def retrieve(
     state: State, *, config: RunnableConfig
 ) -> dict[str, list[Document]]:
@@ -93,24 +96,141 @@ async def retrieve(
         response = await retriever.ainvoke(state.queries[-1], config)
         return {"retrieved_docs": response}
 
-
 async def route(
     state: State, *, config: RunnableConfig
 ) -> dict[str, list[BaseMessage]]:
-    if state.retrieved_docs:
-        return {"messages": [AIMessage(content=state.retrieved_docs[0].metadata.get("id"))]}
-    return {"messages": [AIMessage(content="No MCP server to handle this.")]}
+    """Call the LLM powering our "agent"."""
+    configuration = Configuration.from_runnable_config(config)
+    # Feel free to customize the prompt, model, and other logic!
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", configuration.routing_response_system_prompt),
+            ("placeholder", "{messages}"),
+        ]
+    )
+    model = load_chat_model(configuration.routing_response_model)
+
+    retrieved_docs = format_docs(state.retrieved_docs)
+    message_value = await prompt.ainvoke(
+        {
+            "messages": state.messages,
+            "retrieved_docs": retrieved_docs,
+            "system_time": datetime.now(tz=timezone.utc).isoformat(),
+        },
+        config,
+    )
+    response = await model.ainvoke(message_value, config)
+    return {"current_mcp_server": response.content}
+
+
+##################  MCP Server Router: Sub-graph Components  ###################
+
+async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
+    """ Orchestrates MCP server processing. """
+    # Fetch the current MCP server from state
+    server_name = state.current_mcp_server
+
+    # Fetch mcp server config
+    configuration = Configuration.from_runnable_config(config)
+    mcp_servers = configuration.mcp_server_config["mcpServers"]
+    server_config = mcp_servers[server_name]
+
+    # Fetch tools from the MCP server
+    mcp_server_wrapper = await MCPServerWrapper.create(server_name, server_config)
+    tools = mcp_server_wrapper.get_tools()
+
+    # Prepare the LLM
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", configuration.mcp_orchestrator_system_prompt),
+            ("placeholder", "{messages}"),
+        ]
+    )
+    model = load_chat_model(configuration.mcp_orchestrator_model)
+    message_value = await prompt.ainvoke(
+        {
+            "messages": state.messages,
+            "idk_response": "Unable to assist with this query.",
+            "system_time": datetime.now(tz=timezone.utc).isoformat(),
+        },
+        config,
+    )
+    
+    # Bind tools to model and invoke
+    response = await model.bind_tools(tools).ainvoke(message_value, config)
+
+    return {"messages": [response]}
+
+
+async def mcp_tool_call(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
+    """ Call the MCP server tool."""
+    # Fetch the current MCP server from state
+    server_name = state.current_mcp_server
+
+    # Fetch mcp server config
+    configuration = Configuration.from_runnable_config(config)
+    mcp_servers = configuration.mcp_server_config["mcpServers"]
+    server_config = mcp_servers[server_name]
+
+    # Create MCP server
+    async with await MCPServerWrapper.create(server_name, server_config) as mcp_server_wrapper:
+        # Call the tool
+        tool_call = state.messages[-1].tool_calls[0]
+        tool_output = await mcp_server_wrapper.run_tool(tool_call['name'], **tool_call['args'])
+
+    return {"messages": [AIMessage(content=tool_output)]}
+
+def route_tools(state: State) -> str:
+    """
+    Route to the mcp_tool_call if last message has tool calls.
+    Otherwise, route to the END.
+    """
+    if state.messages[-1].tool_calls:
+        return "mcp_tool_call"
+    return END
+
+
+#############################  Subgraph decider  ###############################
+def decide_subgraph(state: State) -> str:
+    """
+    Route to MCP Server Router sub-graph if there is no state.current_mcp_server
+    else route to MCP Server processing sub-graph.
+    """
+    if not state.current_mcp_server:
+        return "generate_routing_query"
+    return "mcp_orchestrator"
+
+
+##################################  Wiring  ####################################
 
 builder = StateGraph(State, input=InputState, config_schema=Configuration)
 
 builder.add_node(generate_routing_query)
 builder.add_node(retrieve)
 builder.add_node(route)
+builder.add_node(mcp_orchestrator)
+builder.add_node(mcp_tool_call)
 
-builder.add_edge("__start__", "generate_routing_query")
+builder.add_conditional_edges(
+    START,
+    decide_subgraph,
+    {
+        "generate_routing_query": "generate_routing_query",
+        "mcp_orchestrator": "mcp_orchestrator",
+    }
+)
 builder.add_edge("generate_routing_query", "retrieve")
 builder.add_edge("retrieve", "route")
-
+builder.add_edge("route", "mcp_orchestrator")
+builder.add_conditional_edges(
+    "mcp_orchestrator",
+    route_tools,
+    {
+        "mcp_tool_call": "mcp_tool_call",
+        END: END,
+    }
+)
+builder.add_edge("mcp_tool_call", "mcp_orchestrator")
 graph = builder.compile(
     interrupt_before=[],  # if you want to update the state before calling the tools
     interrupt_after=[],
