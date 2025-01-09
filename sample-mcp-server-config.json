@@ -14,7 +14,7 @@
             "args": [
                 "mcp-server-sqlite",
                 "--db-path",
-                "/Users/pdhoolia/test.db"
+                "test.db"
             ]
         }
     }
