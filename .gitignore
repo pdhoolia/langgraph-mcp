@@ -4,3 +4,5 @@ __pycache__
 .DS_Store
 .langgraph_api
 langgraph_mcp.egg-info
+.milvus.db.lock
+milvus.db
