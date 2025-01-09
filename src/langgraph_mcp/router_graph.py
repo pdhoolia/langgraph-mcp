@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
 from langchain_core.documents import Document
-from langchain_core.messages import BaseMessage, AIMessage, ToolMessage
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from pydantic import BaseModel
@@ -14,6 +13,8 @@ from langgraph_mcp.retriever import make_retriever
 from langgraph_mcp.state import InputState, State
 from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
 
+
+IDK_RESPONSE = "Unable to assist with this query."  # Default response where the current MCP Server can't help
 
 ##################  MCP Server Router: Sub-graph Components  ###################
 
@@ -148,7 +149,7 @@ async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str,
     message_value = await prompt.ainvoke(
         {
             "messages": state.messages,
-            "idk_response": "Unable to assist with this query.",
+            "idk_response": IDK_RESPONSE,
             "system_time": datetime.now(tz=timezone.utc).isoformat(),
         },
         config,
@@ -156,6 +157,10 @@ async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str,
     
     # Bind tools to model and invoke
     response = await model.bind_tools(tools).ainvoke(message_value, config)
+
+    if response.content == IDK_RESPONSE:
+        # If the response is IDK_RESPONSE, we will generate a new routing query.
+        return {"current_mcp_server": None}
 
     return {"messages": [response]}
 
@@ -180,6 +185,8 @@ def route_tools(state: State) -> str:
     Route to the mcp_tool_call if last message has tool calls.
     Otherwise, route to the END.
     """
+    if state.messages[-1].__class__ == HumanMessage:
+        return "generate_routing_query"
     if state.messages[-1].tool_calls:
         return "mcp_tool_call"
     return END
@@ -222,6 +229,7 @@ builder.add_conditional_edges(
     route_tools,
     {
         "mcp_tool_call": "mcp_tool_call",
+        "generate_routing_query": "generate_routing_query",
         END: END,
     }
 )
