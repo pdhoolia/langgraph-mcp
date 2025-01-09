@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from langchain_core.documents import Document
-from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
@@ -14,7 +14,9 @@ from langgraph_mcp.state import InputState, State
 from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
 
 
+NOTHING_RELEVANT = "Nothing relevant found"  # When available MCP servers seem to be irrelevant for the query
 IDK_RESPONSE = "Unable to assist with this query."  # Default response where the current MCP Server can't help
+AMBIGUITY_PREFIX = "Ambiguity:"  # Prefix to indicate ambiguity when asking the user for clarification
 
 ##################  MCP Server Router: Sub-graph Components  ###################
 
@@ -115,13 +117,22 @@ async def route(
         {
             "messages": state.messages,
             "retrieved_docs": retrieved_docs,
+            "nothing_relevant": NOTHING_RELEVANT,
+            "ambiguity_prefix": AMBIGUITY_PREFIX,
             "system_time": datetime.now(tz=timezone.utc).isoformat(),
         },
         config,
     )
     response = await model.ainvoke(message_value, config)
+    if response.content == NOTHING_RELEVANT or response.content.startswith(AMBIGUITY_PREFIX):
+        return {"messages": [response]}
     return {"current_mcp_server": response.content}
 
+def decide_mcp_or_not(state: State) -> str:
+    """Decide whether to route to MCP server processing or not"""
+    if state.current_mcp_server:
+        return "mcp_orchestrator"
+    return END
 
 ##################  MCP Server Router: Sub-graph Components  ###################
 
@@ -223,7 +234,14 @@ builder.add_conditional_edges(
 )
 builder.add_edge("generate_routing_query", "retrieve")
 builder.add_edge("retrieve", "route")
-builder.add_edge("route", "mcp_orchestrator")
+builder.add_conditional_edges(
+    "route",
+    decide_mcp_or_not,
+    {
+        "mcp_orchestrator": "mcp_orchestrator",
+        END: END,
+    }
+)
 builder.add_conditional_edges(
     "mcp_orchestrator",
     route_tools,
