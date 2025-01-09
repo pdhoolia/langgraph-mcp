@@ -63,6 +63,10 @@ langgraph dev
 - Select the **assist** graph
 - And ask away!
 
+
+https://github.ibm.com/conversational-ai/langgraph-mcp/assets/14595/38ea2f21-4636-41a1-a4eb-fde16f6a6543
+
+
 Here I ask the **assist-graph** about: *the weather in New Delhi*
 - **start** node (on seeing no active mcp server) sends it to the *router sub-graph*
 - **retrieve** node uses the router-index built in the other graph to retrieve relevant mcp server descriptions
