@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 
 from langgraph_mcp.configuration import Configuration
-from langgraph_mcp.mcp_wrapper import MCPServerWrapper
+from langgraph_mcp import mcp_wrapper as mcp
 from langgraph_mcp.retriever import make_retriever
 from langgraph_mcp.state import InputState, State
 from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
@@ -136,8 +136,7 @@ async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str,
     server_config = mcp_servers[server_name]
 
     # Fetch tools from the MCP server
-    mcp_server_wrapper = await MCPServerWrapper.create(server_name, server_config)
-    tools = mcp_server_wrapper.get_tools()
+    tools = await mcp.apply(server_name, server_config, mcp.GetTools())
 
     # Prepare the LLM
     prompt = ChatPromptTemplate.from_messages(
@@ -172,11 +171,9 @@ async def mcp_tool_call(state: State, *, config: RunnableConfig) -> dict[str, li
     mcp_servers = configuration.mcp_server_config["mcpServers"]
     server_config = mcp_servers[server_name]
 
-    # Create MCP server
-    async with await MCPServerWrapper.create(server_name, server_config) as mcp_server_wrapper:
-        # Call the tool
-        tool_call = state.messages[-1].tool_calls[0]
-        tool_output = await mcp_server_wrapper.run_tool(tool_call['name'], **tool_call['args'])
+    # Execute MCP server Tool
+    tool_call = state.messages[-1].tool_calls[0]
+    tool_output = await mcp.apply(server_name, server_config, mcp.RunTool(tool_call['name'], **tool_call['args']))
 
     return {"messages": [AIMessage(content=tool_output)]}
 
