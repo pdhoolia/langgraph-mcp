@@ -1,7 +1,7 @@
 [project]
 name = "langgraph-mcp"
 version = "0.0.1"
-description = "MCP Router using LangGraph"
+description = "LangGraph Solution Template for MCP"
 authors = [
     { name = "Pankaj Dhoolia", email = "pdhoolia@in.ibm.com" },
 ]
