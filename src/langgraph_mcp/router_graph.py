@@ -1,19 +1,18 @@
 from datetime import datetime, timezone
-from typing import cast
-
 from langchain_core.documents import Document
-from langchain_core.messages import BaseMessage, AIMessage
+from langchain_core.messages import BaseMessage, AIMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
+from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
+from pydantic import BaseModel
+from typing import cast
 
 from langgraph_mcp.configuration import Configuration
 from langgraph_mcp import mcp_wrapper as mcp
 from langgraph_mcp.retriever import make_retriever
 from langgraph_mcp.state import InputState, State
 from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
-from contextvars import ContextVar
 
 
 ##################  MCP Server Router: Sub-graph Components  ###################
@@ -174,8 +173,7 @@ async def mcp_tool_call(state: State, *, config: RunnableConfig) -> dict[str, li
     # Execute MCP server Tool
     tool_call = state.messages[-1].tool_calls[0]
     tool_output = await mcp.apply(server_name, server_config, mcp.RunTool(tool_call['name'], **tool_call['args']))
-
-    return {"messages": [AIMessage(content=tool_output)]}
+    return {"messages": [ToolMessage(content=tool_output, tool_call_id=tool_call['id'])]}
 
 def route_tools(state: State) -> str:
     """
