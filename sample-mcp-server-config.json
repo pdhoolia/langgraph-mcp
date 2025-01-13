@@ -16,6 +16,13 @@
                 "--db-path",
                 "test.db"
             ]
+        },
+        "github": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-github"
+            ]
         }
     }
 }
