@@ -56,41 +56,17 @@ langgraph dev
 
 ![Build Router](media/build-router.gif)
 
-[`build_router_graph.py`](src/langgraph_mcp/build_router_graph.py) collects information on tools, prompts, and resources offered by each MCP server. It generates *routing instruction documents* for each server, embeds them, and indexes in a vector db.
+[`build_router_graph.py`](src/langgraph_mcp/build_router_graph.py) collects information on tools, prompts, and resources offered by each MCP server using the `mcp_wrapper.py`. Details on the wrapper [in this later section](#mcp-wrapper). It generates *routing instruction documents* for each server , embeds them, and indexes in a vector db.
 
 ### Use Assistant
 
-- Select the **assist** graph
-- And ask away!
+[`assistant_graph.py`](src/langgraph_mcp/assistant_graph.py) has all the logic for the assistant! Here's how the Assistant works:
 
+![LangGraph Assistant for MCP](media/langgraph-assistant-mcp.gif)
+
+Here's a demo:
 
 https://github.ibm.com/conversational-ai/langgraph-mcp/assets/14595/38ea2f21-4636-41a1-a4eb-fde16f6a6543
-
-
-Here I ask the **assist-graph** about: *the weather in New Delhi*
-- **start** node (on seeing no active mcp server) sends it to the *router sub-graph*
-- **retrieve** node uses the router-index built in the other graph to retrieve relevant mcp server descriptions
-- **route** node classifies to `weather` MCP server, and populates the active mcp server to `weather`
-- **mcp_orchestrator**
-    - fetches tools from `weather` MCP server
-    - dynamically binds them to the LLM and invokes the LLM
-    - which suggests `get_forcast` *tool_call* with appropriate arguments
-- **mcp_tool_call**
-    - calls `get_forecast` *tool* on the MCP server and adds a `ToolMessage` with its output
-- **mcp_orchestrator** this time suggest a normal response generated based on the tool response
-- Graph ends by displaying the response to the user
-
-
-Next I digress and ask about: *the average price in my products database*
-- **start** node on seeing active mcp server in the state sends it straight to the mcp orchestrator
-- **mcp_orchestrator** attempts to respond using the current *weather* MCP server and its tools, and comes up with a **IDK** (I don't know) type of response. Sending the control to the *router sub-graph*
-- **generate_routing_query** node generates an appropriate routing query based on the conversation so far
-- **retrieve** node retrieves appropriate MCP server descriptions
-- **route** node classifies to `sqlite` MCP server, and populates the active mcp server to `sqlite`
-
-- - **mcp_orchestrator** & **mcp_tool_call** nodes loop over multiple times to use `list_tables`, `describe_table`, and finally `read_query` to fetch the average prices of products.
-
-[`assistant_graph.py`](src/langgraph_mcp/assistant_graph.py) has all the logic for the assistant!
 
 
 ## MCP Wrapper
