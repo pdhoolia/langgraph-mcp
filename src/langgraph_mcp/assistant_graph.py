@@ -126,7 +126,10 @@ async def route(
     response = await model.ainvoke(message_value, config)
     if response.content == NOTHING_RELEVANT or response.content.startswith(AMBIGUITY_PREFIX):
         return {"messages": [response]}
-    return {"current_mcp_server": response.content}
+
+    mcp_server = response.content.split(':')[1].strip() if ':' in response.content else response.content
+
+    return {"current_mcp_server": mcp_server}
 
 def decide_mcp_or_not(state: State) -> str:
     """Decide whether to route to MCP server processing or not"""
