@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Any
 from typing import Any
@@ -83,7 +84,7 @@ async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -
     server_params = StdioServerParameters(
         command=server_config["command"],
         args=server_config["args"],
-        env=server_config.get("env")  # Use None to let default_environment be built
+        env = {**os.environ, **(server_config.get("env") or {})}
     )
     print(f"Starting session with (server: {server_name})")
     async with stdio_client(server_params) as (read, write):
