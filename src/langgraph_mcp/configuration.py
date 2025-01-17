@@ -80,5 +80,9 @@ class Configuration:
         configurable = config.get("configurable") or {}
         _fields = {f.name for f in fields(cls) if f.init}
         return cls(**{k: v for k, v in configurable.items() if k in _fields})
+    
+    def get_mcp_server_descriptions(self) -> list[tuple[str, str]]:
+        """Get a list of descriptions of the MCP servers in the specified configuration."""
+        return [(server_name, server_config['description']) for server_name, server_config in self.mcp_server_config["mcpServers"].items()]
 
 T = TypeVar("T", bound=Configuration)

@@ -16,6 +16,7 @@ from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
 
 NOTHING_RELEVANT = "No MCP server with an appropriate tool to address current context"  # When available MCP servers seem to be irrelevant for the query
 IDK_RESPONSE = "No appropriate tool available."  # Default response where the current MCP Server can't help
+OTHER_SERVERS_MORE_RELEVANT = "Other servers are more relevant."  # Default response when other servers are more relevant than the currnet one
 AMBIGUITY_PREFIX = "Ambiguity:"  # Prefix to indicate ambiguity when asking the user for clarification
 
 ##################  MCP Server Router: Sub-graph Components  ###################
@@ -123,11 +124,18 @@ async def route(
         },
         config,
     )
+
     response = await model.ainvoke(message_value, config)
+
     if response.content == NOTHING_RELEVANT or response.content.startswith(AMBIGUITY_PREFIX):
+        # No relevant server found or ambiguity in the response
         return {"messages": [response]}
 
     mcp_server = response.content.split(':')[1].strip() if ':' in response.content else response.content
+
+    if len(mcp_server.split(' ')) > 1:
+        # Likely a clarification. model has not adhered to the prompt instructions
+        return {'messages': [response]}
 
     return {"current_mcp_server": mcp_server}
 
@@ -149,6 +157,23 @@ async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str,
     mcp_servers = configuration.mcp_server_config["mcpServers"]
     server_config = mcp_servers[server_name]
 
+    def list_other_servers(servers: list[tuple[str, str]], current_server: str) -> str:
+        """
+        Generates a description listing all servers except the current one.
+
+        Args:
+            servers (list[tuple[str, str]]): A list of tuples where each tuple contains a server name and its description.
+            current_server (str): The name of the current server to exclude from the list.
+
+        Returns:
+            str: A formatted string listing the other servers and their descriptions.
+        """
+        return "\n".join(
+            f"- {name}: {description}"
+            for name, description in servers
+            if name != current_server
+        )
+    
     # Fetch tools from the MCP server
     tools = await mcp.apply(server_name, server_config, mcp.GetTools())
 
@@ -164,6 +189,8 @@ async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str,
         {
             "messages": state.messages,
             "idk_response": IDK_RESPONSE,
+            "other_servers": list_other_servers(configuration.get_mcp_server_descriptions(), current_server=server_name),
+            "other_servers_response": OTHER_SERVERS_MORE_RELEVANT,
             "system_time": datetime.now(tz=timezone.utc).isoformat(),
         },
         config,
@@ -172,9 +199,12 @@ async def mcp_orchestrator(state: State, *, config: RunnableConfig) -> dict[str,
     # Bind tools to model and invoke
     response = await model.bind_tools(tools).ainvoke(message_value, config)
 
-    if response.content == IDK_RESPONSE:
-        # If the response is IDK_RESPONSE, we will generate a new routing query.
-        return {"current_mcp_server": None}
+    if response.content == IDK_RESPONSE or response.content == OTHER_SERVERS_MORE_RELEVANT:
+        """model doesn't know how to proceed"""
+        if state.messages[-1].__class__ != ToolMessage:
+            """and this is not immediately after a tool call response"""
+            # let's setup for routing again
+            return {"current_mcp_server": None}
 
     return {"messages": [response]}
 
@@ -191,7 +221,10 @@ async def mcp_tool_call(state: State, *, config: RunnableConfig) -> dict[str, li
 
     # Execute MCP server Tool
     tool_call = state.messages[-1].tool_calls[0]
-    tool_output = await mcp.apply(server_name, server_config, mcp.RunTool(tool_call['name'], **tool_call['args']))
+    try :
+        tool_output = await mcp.apply(server_name, server_config, mcp.RunTool(tool_call['name'], **tool_call['args']))
+    except Exception as e:
+        tool_output = f"Error: {e}"
     return {"messages": [ToolMessage(content=tool_output, tool_call_id=tool_call['id'])]}
 
 def route_tools(state: State) -> str:
@@ -199,10 +232,14 @@ def route_tools(state: State) -> str:
     Route to the mcp_tool_call if last message has tool calls.
     Otherwise, route to the END.
     """
-    if state.messages[-1].__class__ == HumanMessage:
+    last_message = state.messages[-1]
+
+    if last_message.__class__ == HumanMessage:
         return "generate_routing_query"
-    if state.messages[-1].tool_calls:
+    if last_message.model_dump().get('tool_calls'):  # suggests tool calls
         return "mcp_tool_call"
+    if last_message.__class__ == ToolMessage:  # re-routing. todo: check if HITL makes more sense?
+        return "generate_routing_query"
     return END
 
 

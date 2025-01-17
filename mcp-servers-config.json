@@ -2,6 +2,7 @@
     "mcpServers": {
         "weather": {
             "command": "uv",
+            "description": "Get weather forecasts",
             "args": [
                 "--directory",
                 "/Users/pdhoolia/fun/weather_service",
@@ -11,6 +12,7 @@
         },
         "sqlite": {
             "command": "uvx",
+            "description": "Database operations with SQLite",
             "args": [
                 "mcp-server-sqlite",
                 "--db-path",
@@ -19,9 +21,20 @@
         },
         "github": {
             "command": "npx",
+            "description": "GitHub operations for code projects",
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-github"
+            ]
+        },
+        "filesystem": {
+            "command": "npx",
+            "description": "Filesystem operations on your files",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/Users/pdhoolia/Desktop",
+                "/Users/pdhoolia/fun/langgraph-mcp"
             ]
         }
     }
