@@ -20,6 +20,11 @@ class Configuration:
         metadata={"description": "Vector store provider to use for routing."}
     )
 
+    search_kwargs: dict[str, Any] = field(
+        default_factory=dict,
+        metadata={"description": "Additional keyword arguments to pass to the retriever search method (e.g., `{\"k\":2}` to pick top 2 retrieval results)."}
+    )
+
     mcp_server_config: dict[str, Any] = field(
         default_factory=dict,
         metadata={"description": "MCP server configurations."},

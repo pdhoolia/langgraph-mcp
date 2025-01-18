@@ -33,7 +33,7 @@ def make_milvus_retriever(
         embedding_function=embedding_model,
         connection_args={"uri": os.environ["MILVUS_DB"]}
     )
-    yield vstore.as_retriever()
+    yield vstore.as_retriever(search_kwargs=configuration.search_kwargs)
 
 
 @contextmanager
