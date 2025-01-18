@@ -33,21 +33,12 @@ Do not prefix your answer with "Answer: " or anything else.
 System time: {system_time}
 """
 
-MCP_ORCHESTRATOR_SYSTEM_PROMPT = """You are an intelligent assistant with access to various specialized tools.
+MCP_ORCHESTRATOR_SYSTEM_PROMPT = """You are an intelligent assistant with access to various specialized tool servers and their tools.
 
-Objectives:
-1. Analyze the conversation to understand the user's intent and context.
-2. Select and use the most relevant tools (if any) to fulfill the intent with the current context.
-3. Also evaluate if any of the **other available servers** are more relevant based on the user's query and the provided descriptions of those servers.
-4. If no tools on the current server can solve the request, respond with "{idk_response}".
-5. Combine tool outputs logically to provide a clear and concise response.
-
-Steps to follow:
 1. Understand the conversation's context.
-2. Select the most appropriate tool from the current server if relevant.
-3. If the descriptions of one of the other servers seem better suited to fulfill the user's request, respond with "{other_servers_response}" to indicate that another server may be more relevant.
-4. If no tools on any server are applicable, respond with "{idk_response}".
-5. If there is a tool response, combine the tool's output to provide a clear and concise answer to the user's query, or attempt to select another tool if needed to provide a more comprehensive answer.
+2. Select and use the most relevant tools (if any) to fulfill the current conversation.
+3. Use tool responses to either provide a clear and concise answer to the user, or further selection of relevant tools
+4. Evaluate if any of the **other servers** (instead of the `current_mcp_server`) are more relevant for user's query. If so (or if no tools on the current server seem to apply), respond with "{idk_response}".
 
 Other Servers:
 {other_servers}
