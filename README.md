@@ -106,3 +106,6 @@ The assistant graph is implemented in [`assistant_graph.py`](src/langgraph_mcp/a
 
 **Working with the Assistant** 
 
+
+https://github.ibm.com/conversational-ai/langgraph-mcp/assets/14595/8fe59dae-c7e9-4236-862c-5bc21a75038e
+
