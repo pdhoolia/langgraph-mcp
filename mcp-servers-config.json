@@ -12,7 +12,7 @@
         },
         "sqlite": {
             "command": "uvx",
-            "description": "Database operations with SQLite",
+            "description": "Database operations with SQLite, e.g., describe, create, and query tables.",
             "args": [
                 "mcp-server-sqlite",
                 "--db-path",
@@ -21,7 +21,7 @@
         },
         "github": {
             "command": "npx",
-            "description": "GitHub operations for code projects",
+            "description": "GitHub operations for code projects, e.g., create, modify or search repositories, issues, and code.",
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-github"
@@ -29,7 +29,7 @@
         },
         "filesystem": {
             "command": "npx",
-            "description": "Filesystem operations on your files",
+            "description": "Filesystem operations on your files, e.g., search, copy, move, and delete files.",
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-filesystem",
