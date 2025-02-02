@@ -8,7 +8,10 @@
                 "/Users/pdhoolia/fun/weather_service",
                 "run",
                 "weather-service"
-            ]
+            ],
+            "env": {
+                "OPENWEATHER_API_KEY": "YOUR.OPENWEATHER.API.KEY"
+            }
         },
         "sqlite": {
             "command": "uvx",
@@ -25,7 +28,10 @@
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-github"
-            ]
+            ],
+            "env": {
+                "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR.GITHUB.PERSONAL.ACCESS.TOKEN"
+            }
         },
         "filesystem": {
             "command": "npx",
