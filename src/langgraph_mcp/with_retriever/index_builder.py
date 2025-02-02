@@ -3,10 +3,10 @@ from langchain_core.documents import Document
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph
 
-from langgraph_mcp.configuration import Configuration
+from langgraph_mcp.with_retriever.config import Configuration
 from langgraph_mcp import mcp_wrapper as mcp
-from langgraph_mcp.retriever import make_retriever
-from langgraph_mcp.state import BuilderState
+from langgraph_mcp.with_retriever.retriever import make_retriever
+from langgraph_mcp.with_retriever.state import BuilderState
 
 
 async def build_router(state: BuilderState, *, config: RunnableConfig):
@@ -57,4 +57,4 @@ builder = StateGraph(state_schema=BuilderState, config_schema=Configuration)
 builder.add_node(build_router)
 builder.add_edge("__start__", "build_router")
 graph = builder.compile()
-graph.name = "BuildRouterGraph"
+graph.name = "IndexBuilder"

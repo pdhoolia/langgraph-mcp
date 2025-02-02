@@ -4,9 +4,8 @@
     "python_version": "3.12",
     "dependencies": ["."],
     "graphs": {
-      "build_router": "./src/langgraph_mcp/build_router_graph.py:graph",
-      "assist": "./src/langgraph_mcp/assistant_graph.py:graph"
+      "index_builder": "./src/langgraph_mcp/with_retriever/index_builder.py:graph",
+      "assist_with_retriver": "./src/langgraph_mcp/with_retriever/graph.py:graph"
     },
     "env": ".env"
-  }
-  
+}

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, fields
 from typing import Annotated, Any, Literal, Optional, Type, TypeVar
 from langchain_core.runnables import RunnableConfig, ensure_config
 
-from langgraph_mcp import prompts
+from langgraph_mcp.with_retriever import prompts
 
 @dataclass(kw_only=True)
 class Configuration:

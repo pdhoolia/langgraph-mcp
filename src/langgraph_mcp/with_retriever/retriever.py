@@ -7,7 +7,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.runnables import RunnableConfig
 from langchain_core.vectorstores import VectorStoreRetriever
 
-from langgraph_mcp.configuration import Configuration
+from langgraph_mcp.with_retriever.config import Configuration
 
 
 def make_text_encoder(model: str) -> Embeddings:

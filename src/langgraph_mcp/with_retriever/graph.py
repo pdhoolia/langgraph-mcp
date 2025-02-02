@@ -7,11 +7,12 @@ from langgraph.graph import StateGraph, START, END
 from pydantic import BaseModel
 from typing import cast
 
-from langgraph_mcp.configuration import Configuration
+from langgraph_mcp.with_retriever.config import Configuration
 from langgraph_mcp import mcp_wrapper as mcp
-from langgraph_mcp.retriever import make_retriever
-from langgraph_mcp.state import InputState, State
-from langgraph_mcp.utils import get_message_text, load_chat_model, format_docs
+from langgraph_mcp.with_retriever.retriever import make_retriever
+from langgraph_mcp.with_retriever.state import InputState, State
+from langgraph_mcp.with_retriever.utils import format_docs
+from langgraph_mcp.utils import get_message_text, load_chat_model
 
 
 NOTHING_RELEVANT = "No MCP server with an appropriate tool to address current context"  # When available MCP servers seem to be irrelevant for the query
@@ -296,4 +297,4 @@ graph = builder.compile(
     interrupt_before=[],  # if you want to update the state before calling the tools
     interrupt_after=[],
 )
-graph.name = "AssistantGraph"
+graph.name = "AssistantGraphWithRetriever"
