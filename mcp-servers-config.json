@@ -24,7 +24,7 @@
         },
         "github": {
             "command": "npx",
-            "description": "GitHub operations for code projects, e.g., create, modify or search repositories, issues, and code.",
+            "description": "GitHub operations for code projects, e.g., create, modify or search repositories, issues, and code, or get file or directory contents.",
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-github"
