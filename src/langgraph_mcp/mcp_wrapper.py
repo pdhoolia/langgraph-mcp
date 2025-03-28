@@ -68,6 +68,22 @@ class GetTools(MCPSessionFunction):
             for tool in tools.tools
         ]
 
+class GetPrompts(MCPSessionFunction):
+    async def __call__(self, server_name: str, session: ClientSession) -> dict[str, Any]:
+        prompts = await session.list_prompts()
+        if prompts is None:
+            return {"prompts": []}
+        return {
+            "prompts": [
+                {
+                    "name": prompt.name,
+                    "description": prompt.description or "",
+                    "arguments": prompt.arguments or []
+                }
+                for prompt in prompts.prompts
+            ]
+        }
+
 class RunTool(MCPSessionFunction):
     def __init__(self, tool_name: str, **kwargs):
         self.tool_name = tool_name
