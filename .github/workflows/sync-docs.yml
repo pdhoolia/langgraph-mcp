@@ -9,11 +9,14 @@ jobs:
   push_public:
     name: Push to Public GitHub
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate public README
         run: |
