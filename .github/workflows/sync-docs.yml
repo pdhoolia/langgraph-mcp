@@ -1,0 +1,47 @@
+name: Sync Docs to Remotes
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  push_public:
+    name: Push to Public GitHub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate public README
+        run: |
+          python scripts/generate_readme.py public
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "docs: update public README [automated]" || echo "No changes to commit"
+          git push origin main
+
+  push_enterprise:
+    name: Push to GitHub Enterprise
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add enterprise remote
+        run: |
+          git remote add enterprise https://github.ibm.com/conversational-ai/langgraph-mcp.git
+
+      - name: Generate enterprise README
+        run: |
+          python scripts/generate_readme.py enterprise
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "docs: update enterprise README [automated]" || echo "No changes to commit"
+          git push enterprise main
+        env:
+          GITHUB_TOKEN: ${{ secrets.ENTERPRISE_GITHUB_TOKEN }}
