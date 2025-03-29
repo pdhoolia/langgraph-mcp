@@ -72,7 +72,7 @@ The assistant graph is implemented in [`assistant_graph.py`](src/langgraph_mcp/a
 
 1.  Create and activate a virtual environment
     ```bash
-    git clone https://github.ibm.com/conversational-ai/langgraph-mcp.git
+    git clone https://github.com/pdhoolia/langgraph-mcp.git
     cd langgraph-mcp
     python3 -m venv .venv
     source .venv/bin/activate
@@ -107,5 +107,5 @@ The assistant graph is implemented in [`assistant_graph.py`](src/langgraph_mcp/a
 **Working with the Assistant** 
 
 
-https://github.ibm.com/conversational-ai/langgraph-mcp/assets/14595/8fe59dae-c7e9-4236-862c-5bc21a75038e
+https://github.com/user-attachments/assets/f7f60d9b-528f-4103-a8a2-d974aaab5b0b
 
