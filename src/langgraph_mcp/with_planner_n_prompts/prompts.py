@@ -87,7 +87,6 @@ You are provided with:
 Your job is to decide and perform one of these actions:
 - Select a tool to execute to progress the conversation
 - Ask the user for information if tool usage requires specific input (start your message with "I need more information from you" to signal that human input is required)
-- Respond to user query if the plan is completed
 - Indicate that the current expert doesn't know how to proceed by tagging response with: {idk_tag}
 
 Current Plan:
@@ -111,18 +110,12 @@ System time: {system_time}
 
 TASK_ASSESSMENT_SYSTEM_PROMPT = """You are an intelligent assistant that assesses whether the current task in a plan has been completed based on the conversation history.
 
-You need to analyze the recent conversation and determine if the current task has been successfully completed or if it still requires more work. A task is complete when:
-1. The purpose of the task has been fulfilled
-2. The user's needs related to this specific task have been satisfied
-3. There's clear indication in the conversation that this part of the work is done
+You need to analyze the conversation, attend only to the current task (not the entire plan) and determine if just that current task has been successfully completed and we are ready to move on to the next task of the plan.
 
 Current Task:
 ```
 {task}
 ```
-
-Recent Conversation:
-{recent_messages}
 
 Analyze the conversation and determine if the current task is complete. Provide your assessment as a JSON object with the following schema:
 
@@ -138,6 +131,21 @@ Where:
 - "is_completed": Boolean indicating if the task is complete
 - "explanation": Your reasoning for this assessment
 - "confidence": How confident you are in this assessment (0-1)
+
+System time: {system_time}
+"""
+
+GENERATE_RESPONSE_SYSTEM_PROMPT = """You are a helpful AI assistant providing a final summary after executing a plan with multiple tasks.
+
+Review the complete conversation history and results of all executed tasks. Provide a clear, concise summary of what was accomplished and any key results. Be conversational and helpful.
+
+Your response should:
+1. Summarize the original user request and how it was addressed
+2. Highlight key accomplishments from the executed plan
+3. Present any important findings or results
+4. Offer next steps if appropriate
+
+Be thorough but concise in your summary, focusing on what would be most valuable to the user.
 
 System time: {system_time}
 """ 

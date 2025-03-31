@@ -357,21 +357,18 @@ async def assess_task_completion(state: State, *, config: RunnableConfig) -> dic
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", configuration.task_assessment_system_prompt),
-            ("placeholder", "{recent_messages}"),
+            ("placeholder", "{messages}"),
         ]
     )
     
     # Load the chat model for task assessment
     model = load_chat_model(configuration.task_assessment_model)
     
-    # Get recent conversation (last 5 messages)
-    recent_messages = state.messages[-5:] if len(state.messages) >= 5 else state.messages
-    
     # Build the context
     context = await prompt.ainvoke(
         {
             "task": current_task.task,
-            "recent_messages": recent_messages,
+            "messages": state.messages,
             "system_time": datetime.now(tz=timezone.utc).isoformat(),
         },
         config,
@@ -413,12 +410,47 @@ def advance_to_next_task(state: State) -> dict[str, Union[PlannerResult, bool, L
     return result
 
 
-def decide_next_task_edge(state: State) -> Literal["select_expert", "end"]:
+def decide_next_task_edge(state: State) -> Literal["select_expert", "generate_response"]:
     """Decide whether there are more tasks or the plan is complete."""
     if (state.planner_result and 
         state.planner_result.next_task < len(state.planner_result.plan)):
         return "select_expert"
-    return "end"
+    return "generate_response"
+
+
+async def generate_response(state: State, *, config: RunnableConfig) -> dict[str, Union[list[BaseMessage], PlannerResult]]:
+    """Generate a final AI response at the end of plan execution."""
+    # Get configurations
+    configuration = Configuration.from_runnable_config(config)
+    
+    # Build a chat prompt for final response
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", configuration.generate_response_system_prompt),
+            ("placeholder", "{messages}"),
+        ]
+    )
+    
+    # Load the chat model for generating the final response
+    model = load_chat_model(configuration.generate_response_model)
+    
+    # Build the context
+    context = await prompt.ainvoke(
+        {
+            "messages": state.messages,
+            "system_time": datetime.now(tz=timezone.utc).isoformat(),
+        },
+        config,
+    )
+    
+    # Call the model
+    response = await model.ainvoke(context, config)
+    
+    # Reset planner state for future interactions
+    return {
+        "messages": [response],
+        "planner_result": None
+    }
 
 
 # Define the state graph
@@ -435,6 +467,7 @@ builder.add_node("orchestrate_tools", orchestrate_tools)
 builder.add_node("call_tool", call_tool)
 builder.add_node("assess_task_completion", assess_task_completion)
 builder.add_node("advance_to_next_task", advance_to_next_task)
+builder.add_node("generate_response", generate_response)
 
 # Add the edges
 builder.add_edge(START, "planner")
@@ -482,9 +515,10 @@ builder.add_conditional_edges(
     decide_next_task_edge,
     {
         "select_expert": "select_expert",
-        "end": END,
+        "generate_response": "generate_response",
     }
 )
+builder.add_edge("generate_response", END)
 
 # Compile the graph
 graph = builder.compile()
