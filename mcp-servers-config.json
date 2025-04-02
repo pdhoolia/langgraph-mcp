@@ -22,17 +22,6 @@
                 "test.db"
             ]
         },
-        "github": {
-            "command": "npx",
-            "description": "GitHub operations for code projects, e.g., create, modify or search repositories, issues, and code, or get file or directory contents.",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-github"
-            ],
-            "env": {
-                "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR.GITHUB.PERSONAL.ACCESS.TOKEN"
-            }
-        },
         "filesystem": {
             "command": "npx",
             "description": "Filesystem operations on your files, e.g., search, copy, move, and delete files.",
@@ -42,6 +31,15 @@
                 "/Users/pdhoolia/Desktop",
                 "/Users/pdhoolia/fun/langgraph-mcp"
             ]
+        }
+    },
+    "smithery": {
+        "github": {
+            "url": "wss://server.smithery.ai/@smithery-ai/github/ws",
+            "description": "GitHub operations for code projects, e.g., create, modify or search repositories, issues, and code, or get file or directory contents.",
+            "env": {
+                "githubPersonalAccessToken": "YOUR.GITHUB.PERSONAL.ACCESS.TOKEN"
+            }
         }
     }
 }

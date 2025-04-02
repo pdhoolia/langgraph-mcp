@@ -11,7 +11,7 @@ from langgraph.graph import StateGraph, START, END
 
 from langgraph_mcp import mcp_wrapper as mcp
 from langgraph_mcp.state import InputState
-from langgraph_mcp.utils import load_chat_model
+from langgraph_mcp.utils import load_chat_model, get_server_config
 
 from langgraph_mcp.with_planner_n_prompts.config import Configuration
 from langgraph_mcp.with_planner_n_prompts.state import State, PlannerResult, ExpertPrompt
@@ -69,28 +69,8 @@ async def planner(state: State, *, config: RunnableConfig) -> dict[str, list[Bas
 def decide_planner_edge(state: State) -> str:
     """Decide where to go after planning stage."""
     if state.planner_result.plan:
-        return "select_expert"
+        return "discover_expert_prompts"
     return END
-
-
-async def select_expert(state: State, *, config: RunnableConfig) -> dict[str, Any]:
-    """Select the current expert based on the active task in the plan."""
-    # Reset task completion status and expert prompts when selecting a new expert
-    result = {
-        "task_completed": False,
-        "expert_prompts": [],
-        "selected_prompt": None
-    }
-    
-    # Check if we have a valid plan with a current task
-    if not state.planner_result or not state.planner_result.get_current_task():
-        return result
-    
-    # Get the current task from the plan
-    current_task = state.planner_result.get_current_task()
-    
-    # Return the selected expert
-    return result
 
 
 async def discover_expert_prompts(state: State, *, config: RunnableConfig) -> dict[str, Any]:
@@ -104,11 +84,10 @@ async def discover_expert_prompts(state: State, *, config: RunnableConfig) -> di
         return {"expert_prompts": []}
     
     # Fetch MCP server config for the current expert
-    mcp_servers = configuration.mcp_server_config["mcpServers"]
-    server_config = mcp_servers[current_task.expert]
-    
-    # Fetch available prompts from the MCP server
     try:
+        server_config = get_server_config(current_task.expert, configuration.mcp_server_config)
+        
+        # Fetch available prompts from the MCP server
         prompts_response = await mcp.apply(
             current_task.expert, 
             server_config, 
@@ -286,11 +265,12 @@ async def orchestrate_tools(state: State, *, config: RunnableConfig) -> dict[str
     
     # Get the tools for the current expert and bind them to the model
     if current_task:
-        current_expert = current_task.expert
-        mcp_servers = configuration.mcp_server_config["mcpServers"]
-        server_config = mcp_servers[current_expert]
-        tools = await mcp.apply(current_expert, server_config, mcp.GetTools())
-        model = model.bind_tools(tools)
+        try:
+            server_config = get_server_config(current_task.expert, configuration.mcp_server_config)
+            tools = await mcp.apply(current_task.expert, server_config, mcp.GetTools())
+            model = model.bind_tools(tools)
+        except KeyError as e:
+            return {"messages": [AIMessage(content=f"Error: {e}")]}
     
     # Call the model
     response = await model.ainvoke(context, config)
@@ -326,8 +306,10 @@ async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[B
 
     # Fetch MCP server config
     configuration = Configuration.from_runnable_config(config)
-    mcp_servers = configuration.mcp_server_config["mcpServers"]
-    server_config = mcp_servers[current_task.expert]
+    try:
+        server_config = get_server_config(current_task.expert, configuration.mcp_server_config)
+    except KeyError as e:
+        return {"messages": [AIMessage(content=f"Error: {e}")]}
 
     # Execute MCP server Tool
     tool_call = state.messages[-1].tool_calls[0]
@@ -410,11 +392,11 @@ def advance_to_next_task(state: State) -> dict[str, Union[PlannerResult, bool, L
     return result
 
 
-def decide_next_task_edge(state: State) -> Literal["select_expert", "generate_response"]:
+def decide_next_task_edge(state: State) -> Literal["discover_expert_prompts", "generate_response"]:
     """Decide whether there are more tasks or the plan is complete."""
     if (state.planner_result and 
         state.planner_result.next_task < len(state.planner_result.plan)):
-        return "select_expert"
+        return "discover_expert_prompts"
     return "generate_response"
 
 
@@ -458,7 +440,6 @@ builder = StateGraph(State, input=InputState, config_schema=Configuration)
 
 # Add all the nodes
 builder.add_node("planner", planner)
-builder.add_node("select_expert", select_expert)
 builder.add_node("discover_expert_prompts", discover_expert_prompts)
 builder.add_node("select_prompt", select_prompt)
 builder.add_node("ask_user_for_prompt", ask_user_for_prompt)
@@ -475,11 +456,10 @@ builder.add_conditional_edges(
     "planner",
     decide_planner_edge,
     {
-        "select_expert": "select_expert",
+        "discover_expert_prompts": "discover_expert_prompts",
         END: END,
     }
 )
-builder.add_edge("select_expert", "discover_expert_prompts")
 builder.add_edge("discover_expert_prompts", "select_prompt")
 builder.add_conditional_edges(
     "select_prompt",
@@ -514,7 +494,7 @@ builder.add_conditional_edges(
     "advance_to_next_task",
     decide_next_task_edge,
     {
-        "select_expert": "select_expert",
+        "discover_expert_prompts": "discover_expert_prompts",
         "generate_response": "generate_response",
     }
 )

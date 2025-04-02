@@ -1,10 +1,11 @@
 import os
 from abc import ABC, abstractmethod
 from typing import Any
-from typing import Any
 from langchain_core.tools import ToolException
 from mcp import ClientSession, ListPromptsResult, ListResourcesResult, ListToolsResult, StdioServerParameters, stdio_client
+from mcp.client.websocket import websocket_client
 import pydantic_core
+import smithery
 
 
 # Abstract base class for MCP session functions
@@ -97,13 +98,31 @@ class RunTool(MCPSessionFunction):
         return content
 
 async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -> Any:
-    server_params = StdioServerParameters(
-        command=server_config["command"],
-        args=server_config["args"],
+    """Apply a function to an MCP server session, handling both standard and Smithery servers.
+    
+    Args:
+        server_name: Name of the server to connect to
+        server_config: Configuration for the server
+        fn: Function to apply to the server session
+    """
+    # Check if this is a Smithery server by looking for 'url' in config
+    if 'url' in server_config:
+        # Create Smithery URL with server endpoint and config
         env = {**os.environ, **(server_config.get("env") or {})}
-    )
-    print(f"Starting session with (server: {server_name})")
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            return await fn(server_name, session)
+        url = smithery.create_smithery_url(server_config['url'], env) + f"&api_key={env['SMITHERY_API_KEY']}"
+        print(f"Starting Smithery session with (server: {server_name})")
+        async with websocket_client(url) as streams:
+            async with ClientSession(*streams) as session:
+                return await fn(server_name, session)
+    else:
+        # Handle standard MCP server
+        server_params = StdioServerParameters(
+            command=server_config["command"],
+            args=server_config["args"],
+            env = {**os.environ, **(server_config.get("env") or {})}
+        )
+        print(f"Starting session with (server: {server_name})")
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                return await fn(server_name, session)

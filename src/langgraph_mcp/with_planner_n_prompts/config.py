@@ -103,8 +103,20 @@ class Configuration:
         return cls(**{k: v for k, v in configurable.items() if k in _fields})
     
     def get_mcp_server_descriptions(self) -> list[tuple[str, str]]:
-        """Get a list of descriptions of the MCP servers in the specified configuration."""
-        return [(server_name, server_config['description']) for server_name, server_config in self.mcp_server_config["mcpServers"].items()]
+        """Get a list of descriptions of all MCP servers (both standard and Smithery hosted) in the specified configuration."""
+        descriptions = []
+        
+        # Add standard MCP servers
+        if "mcpServers" in self.mcp_server_config:
+            descriptions.extend([(server_name, server_config['description']) 
+                              for server_name, server_config in self.mcp_server_config["mcpServers"].items()])
+        
+        # Add Smithery hosted servers
+        if "smithery" in self.mcp_server_config:
+            descriptions.extend([(server_name, server_config['description'])
+                              for server_name, server_config in self.mcp_server_config["smithery"].items()])
+        
+        return descriptions
     
     def build_experts_context(self) -> str:
         """Build the experts part of the prompt for the planning task.

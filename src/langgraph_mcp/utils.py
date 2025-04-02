@@ -1,6 +1,7 @@
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AnyMessage
+from typing import Dict, Any
 
 
 def get_message_text(msg: AnyMessage) -> str:
@@ -45,3 +46,28 @@ def load_chat_model(fully_specified_name: str) -> BaseChatModel:
         provider = ""
         model = fully_specified_name
     return init_chat_model(model, model_provider=provider)
+
+
+def get_server_config(server_name: str, mcp_server_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Get server configuration for any MCP server type.
+    
+    This function handles both standard MCP servers (in mcpServers) and Smithery servers (in smithery).
+    
+    Args:
+        server_name (str): Name of the server to get configuration for
+        mcp_server_config (Dict[str, Any]): The MCP server configuration dictionary
+        
+    Returns:
+        Dict[str, Any]: Server configuration for the specified server
+        
+    Raises:
+        KeyError: If server_name is not found in either mcpServers or smithery sections
+    """
+    # Check if this is a Smithery server
+    if server_name in mcp_server_config.get("smithery", {}):
+        return mcp_server_config["smithery"][server_name]
+    # Check if this is a standard MCP server
+    elif server_name in mcp_server_config.get("mcpServers", {}):
+        return mcp_server_config["mcpServers"][server_name]
+    else:
+        raise KeyError(f"Server '{server_name}' not found in either mcpServers or smithery configurations")
