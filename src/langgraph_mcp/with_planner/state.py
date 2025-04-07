@@ -40,14 +40,20 @@ class PlannerResult(BaseModel):
 
 @dataclass(kw_only=True)
 class State(InputState):
-    """Extends InputState to include an optional planner result.
+    """Extends InputState to include planner result and task completion status.
 
-    This state variant maintains the planner's decision and task plan, 
-    allowing the agent to track and adjust its execution accordingly.
+    This state variant maintains the planner's decision, task plan, and tracks
+    task completion status to manage plan execution flow.
     """
 
     planner_result: Optional[PlannerResult] = field(default=None)
     """The result from the planner, including task assignments and execution decisions.
 
     If no planner result is available, this remains `None`.
+    """
+
+    task_completed: bool = field(default=False)
+    """Indicates whether the current task has been completed.
+    
+    This is used to determine whether to advance to the next task or continue with the current one.
     """

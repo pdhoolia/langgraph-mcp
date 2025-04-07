@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from typing import Literal, Union
+from pydantic import BaseModel, Field
 from langchain_core.messages import BaseMessage, AIMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
@@ -11,9 +13,14 @@ from langgraph_mcp.utils import load_chat_model
 from langgraph_mcp.with_planner.config import Configuration
 from langgraph_mcp.with_planner.state import State, PlannerResult
 
-
-CONTINUE_WITH_PLAN_TAG = "[::CONTINUE WITH PLAN::]"
+# Tags for special message responses
 IDK_TAG = "[::IDK::]"
+
+class TaskAssessmentResult(BaseModel):
+    """Output schema for task assessment LLM evaluation."""
+    is_completed: bool = Field(description="Boolean indicating if the task is complete")
+    explanation: str = Field(description="Explanation for the assessment")
+    confidence: float = Field(description="Confidence score between 0 and 1")
 
 async def planner(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
     # get configurations
@@ -77,7 +84,6 @@ async def orchestrate(state: State, *, config: RunnableConfig) -> dict[str, list
             "messages": state.messages,
             "plan": current_plan,
             "task": current_task.task if current_task else "",
-            "continue_with_plan_tag": CONTINUE_WITH_PLAN_TAG,
             "idk_tag": IDK_TAG,
             "system_time": datetime.now(tz=timezone.utc).isoformat(),
         },
@@ -94,18 +100,30 @@ async def orchestrate(state: State, *, config: RunnableConfig) -> dict[str, list
     response = await model.ainvoke(context, config)
     return {"messages": [response]}
 
-def decide_orchestrate_edge(state: State) -> str:
+def decide_orchestrate_edge(state: State) -> Literal["call_tool", "assess_task", "end"]:
+    """Decide the next step after orchestration."""
     last_message = state.messages[-1]
-
+    
+    # If the last message contains tool calls, execute them
     if last_message.model_dump().get('tool_calls'):
         return "call_tool"
-    if CONTINUE_WITH_PLAN_TAG in last_message.content:
-        return "planner"
-    return END
+    
+    # If the message indicates expert doesn't know how to proceed, end the flow
+    if IDK_TAG in last_message.content:
+        return "end"
+        
+    # If the message is asking for human input, end the current flow
+    if "I need more information from you" in last_message.content:
+        return "end"
+    
+    # Otherwise, assess if the current task is complete
+    return "assess_task"
 
 async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
     # Get the current task
     current_task = state.planner_result.get_current_task()
+    if not current_task:
+        return {"messages": [AIMessage(content="Error: No current task available for tool execution.")]}
 
     # Fetch mcp server config
     configuration = Configuration.from_runnable_config(config)
@@ -114,44 +132,169 @@ async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[B
 
     # Execute MCP server Tool
     tool_call = state.messages[-1].tool_calls[0]
-    try :
+    try:
         tool_output = await mcp.apply(
             current_task.expert, 
             server_config, 
-            mcp.RunTool(tool_call['name'],**tool_call['args'])
+            mcp.RunTool(tool_call['name'], **tool_call['args'])
         )
     except Exception as e:
         tool_output = f"Error: {e}"
+        
     return {"messages": [ToolMessage(content=tool_output, tool_call_id=tool_call['id'])]}
 
+async def assess_task_completion(state: State, *, config: RunnableConfig) -> dict[str, bool]:
+    """Assess whether the current task has been completed."""
+    # Get configurations
+    configuration = Configuration.from_runnable_config(config)
+    
+    # Get the current task
+    current_task = state.planner_result.get_current_task()
+    if not current_task:
+        return {"task_completed": True}  # If no task, consider it completed
+    
+    # Build a chat prompt for task assessment
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", configuration.task_assessment_system_prompt),
+            ("placeholder", "{messages}"),
+        ]
+    )
+    
+    # Load the chat model for task assessment
+    model = load_chat_model(configuration.task_assessment_model)
+    
+    # Build the context
+    context = await prompt.ainvoke(
+        {
+            "task": current_task.task,
+            "messages": state.messages,
+            "system_time": datetime.now(tz=timezone.utc).isoformat(),
+        },
+        config,
+    )
+    
+    # Call the model with the structured output parser
+    result = await model.with_structured_output(TaskAssessmentResult).ainvoke(context, config)
+    
+    # Return the task completion status
+    return {"task_completed": result.is_completed and result.confidence >= 0.7}
 
+def decide_task_assessment_edge(state: State) -> Literal["next_task", "orchestrate"]:
+    """Decide whether to move to the next task or continue with the current one."""
+    if state.task_completed:
+        return "next_task"
+    return "orchestrate"
+
+def advance_to_next_task(state: State) -> dict[str, Union[PlannerResult, bool]]:
+    """Advance to the next task in the plan."""
+    if not state.planner_result:
+        return {}
+        
+    # Create a copy of the current planner result
+    planner_result = state.planner_result.model_copy()
+    
+    # Advance to the next task
+    planner_result.next_task += 1
+    
+    # Reset task-related state
+    result = {
+        "planner_result": planner_result,
+        "task_completed": False
+    }
+    
+    return result
+
+def decide_next_task_edge(state: State) -> Literal["orchestrate", "generate_response"]:
+    """Decide whether there are more tasks or the plan is complete."""
+    if (state.planner_result and 
+        state.planner_result.next_task < len(state.planner_result.plan)):
+        return "orchestrate"
+    return "generate_response"
+
+async def generate_response(state: State, *, config: RunnableConfig) -> dict[str, Union[list[BaseMessage], PlannerResult]]:
+    """Generate a final AI response at the end of plan execution."""
+    # Get configurations
+    configuration = Configuration.from_runnable_config(config)
+    
+    # Build a chat prompt for final response
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", configuration.generate_response_system_prompt),
+            ("placeholder", "{messages}"),
+        ]
+    )
+    
+    # Load the chat model for generating the final response
+    model = load_chat_model(configuration.generate_response_model)
+    
+    # Build the context
+    context = await prompt.ainvoke(
+        {
+            "messages": state.messages,
+            "system_time": datetime.now(tz=timezone.utc).isoformat(),
+        },
+        config,
+    )
+    
+    # Call the model
+    response = await model.ainvoke(context, config)
+    
+    # Reset planner state for future interactions
+    return {
+        "messages": [response],
+        "planner_result": None
+    }
+
+# Define the state graph
 builder = StateGraph(State, input=InputState, config_schema=Configuration)
 
-builder.add_node(planner)
-builder.add_node(orchestrate)
-builder.add_node(call_tool)
+# Add all the nodes
+builder.add_node("planner", planner)
+builder.add_node("orchestrate", orchestrate)
+builder.add_node("call_tool", call_tool)
+builder.add_node("assess_task_completion", assess_task_completion)
+builder.add_node("advance_to_next_task", advance_to_next_task)
+builder.add_node("generate_response", generate_response)
 
+# Add the edges
 builder.add_edge(START, "planner")
 builder.add_conditional_edges(
-    source="planner",
-    path=decide_planner_edge,
-    path_map={
+    "planner",
+    decide_planner_edge,
+    {
         "orchestrate": "orchestrate",
         END: END,
     }
 )
 builder.add_conditional_edges(
-    source="orchestrate",
-    path=decide_orchestrate_edge,
-    path_map={
+    "orchestrate",
+    decide_orchestrate_edge,
+    {
         "call_tool": "call_tool",
-        "planner": "planner",
-        END: END,
+        "assess_task": "assess_task_completion",
+        "end": END,
     }
 )
-builder.add_edge("call_tool", "orchestrate")
-graph = builder.compile(
-    interrupt_before=[],  # if you want to update the state before calling the tools
-    interrupt_after=[],
+builder.add_edge("call_tool", "assess_task_completion")
+builder.add_conditional_edges(
+    "assess_task_completion",
+    decide_task_assessment_edge,
+    {
+        "next_task": "advance_to_next_task",
+        "orchestrate": "orchestrate",
+    }
 )
+builder.add_conditional_edges(
+    "advance_to_next_task",
+    decide_next_task_edge,
+    {
+        "orchestrate": "orchestrate",
+        "generate_response": "generate_response",
+    }
+)
+builder.add_edge("generate_response", END)
+
+# Compile the graph
+graph = builder.compile()
 graph.name = "AssistantGraphWithPlanner"

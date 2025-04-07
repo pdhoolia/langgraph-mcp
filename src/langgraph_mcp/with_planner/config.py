@@ -38,6 +38,30 @@ class Configuration:
         },
     )
 
+    task_assessment_system_prompt: str = field(
+        default=prompts.TASK_ASSESSMENT_SYSTEM_PROMPT,
+        metadata={"description": "The system prompt used for evaluating task completion status."},
+    )
+
+    task_assessment_model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+        default="openai/gpt-4o",
+        metadata={
+            "description": "The language model used for task completion assessment. Should be in the form: provider/model-name."
+        },
+    )
+
+    generate_response_system_prompt: str = field(
+        default=prompts.GENERATE_RESPONSE_SYSTEM_PROMPT,
+        metadata={"description": "The system prompt used for generating final responses after plan completion."},
+    )
+
+    generate_response_model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+        default="openai/gpt-4o",
+        metadata={
+            "description": "The language model used for generating final responses. Should be in the form: provider/model-name."
+        },
+    )
+
     @classmethod
     def from_runnable_config(
         cls: Type[T], config: Optional[RunnableConfig] = None
