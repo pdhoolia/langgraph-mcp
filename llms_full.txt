@@ -1,0 +1,548 @@
+# LangGraph Solution Template for MCP based agents
+
+> This project provides multiple LangGraph framework based implementations (strategies) for a universal assistant powered by MCP (Model Context Protocol) servers. It aims to showcase how LangGraph and MCP can be combined to build modular and extensible AI agents capable of interacting with various tools and data sources.
+
+This documentation provides details necessary for Large Language Models (LLMs) and AI Agents to understand, diagnose, and enhance this project workspace.
+
+## Project Overview
+- [Project Structure and Purpose](./docs/project_overview.md): High-level description of the project, its goals, and the directory structure.
+
+## Dependencies
+- [Key Dependencies](./docs/dependencies.md): Information about project dependencies, Python version, and build system details extracted from `pyproject.toml`.
+
+## LangGraph Integration
+- [LangGraph Setup](./docs/langgraph_integration.md): Details on how LangGraph is configured and integrated, based on `langgraph.json`.
+
+## Strategies
+- [Implementation Strategies](./docs/strategies/index.md): Overview of the different LangGraph-based assistant strategies implemented and links to their specific documentation.
+
+## Code Patterns
+- [Common Code Patterns](./docs/code_patterns.md): Documentation of recurring code patterns and conventions used throughout the project, including LLM node implementation, model loading, and MCP interaction. 
+
+## Setting it up
+
+1.  Create and activate a virtual environment
+    ```bash
+    git clone {{REPO_URL}}
+    cd langgraph-mcp
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```
+
+2.  Install Langgraph CLI
+    ```bash
+    pip install -U "langgraph-cli[inmem]"
+    ```
+    Note: "inmem" extra(s) are needed to run LangGraph API server in development mode (without requiring Docker installation)
+
+3.  Install the dependencies
+    ```bash
+    pip install -e .
+    ```
+
+4.  Configure environment variables
+    ```bash
+    cp env.example .env
+    ```
+
+---
+# Project Overview
+
+## Purpose
+
+This project demonstrates building a universal assistant using LangGraph and the Model Context Protocol (MCP). It combines LangGraph's workflow orchestration capabilities with MCP's standardized interface for connecting AI models to external tools and data sources.
+
+The core idea is to implement a multi-agent pattern where an assistant routes user requests to appropriate agents. These agents then interact with MCP servers to utilize their offered tools, prompts, and resources.
+
+## Key Components
+
+*   **LangGraph:** Used to define and execute the assistant's workflow as a graph. Nodes represent actions (like routing, calling agents, or interacting with MCP), and edges define the control flow.
+*   **MCP:** Provides a standardized way for LangGraph agents to communicate with external services (MCP Servers) offering tools and data.
+*   **Strategies:** Different implementations of the LangGraph assistant workflow are provided as distinct "strategies" (e.g., using a planner, a retriever, etc.).
+*   **MCP Wrapper (`src/langgraph_mcp/mcp_wrapper.py`):** A generic module to handle communication with MCP servers (both standard and Smithery-based) using a strategy pattern.
+
+## Directory Structure
+
+-   `src/langgraph_mcp/`: Contains the core source code.
+    -   `with_planner/`: Implementation strategy using a planner agent.
+    -   `with_retriever/`: Implementation strategy using a retriever and an index builder.
+    -   `with_planner_n_prompts/`: Implementation strategy using a planner with multiple prompts.
+    -   `state.py`: Defines the common state shared across graphs.
+    -   `utils.py`: Common utility functions (e.g., loading models).
+    -   `mcp_wrapper.py`: Handles interaction with MCP servers.
+-   `pyproject.toml`: Project metadata and dependencies.
+-   `langgraph.json`: LangGraph-specific configuration, including graph entry points.
+-   `README.md`: General project description for human readers.
+-   `llms.txt`: Entry point for AI/LLM-readable documentation.
+-   `docs/`: Directory containing detailed markdown documentation linked from `llms.txt`. 
+
+---
+# Project Dependencies and Metadata
+
+This document outlines the key dependencies and metadata for the `langgraph-mcp` project, primarily sourced from `pyproject.toml`.
+
+## Project Information
+
+-   **Name:** `langgraph-mcp`
+-   **Version:** `0.0.1`
+-   **Description:** LangGraph Solution Template for MCP
+-   **Authors:** Pankaj Dhoolia <pdhoolia@in.ibm.com>
+-   **License:** MIT
+-   **Readme:** `README.md`
+
+## Requirements
+
+-   **Python Version:** >=3.12
+
+## Core Dependencies
+
+-   `asyncio>=3.4.3`
+-   `langchain>=0.2.17`
+-   `langchain-core>=0.3.21`
+-   `langchain-milvus>=0.1.7` (Used specifically in the `with_retriever` strategy)
+-   `langchain-openai>=0.2.11`
+-   `langgraph>=0.2.56`
+-   `mcp>=1.0.0` (Model Context Protocol library)
+-   `openai>=1.57.0`
+-   `python-dotenv>=1.0.1`
+-   `smithery` (For interacting with Smithery-based MCP servers)
+
+## Development Dependencies (`dev`)
+
+-   `debugpy`
+-   `mypy>=1.11.1`
+-   `ruff>=0.6.1`
+
+## Build System
+
+-   **Requires:** `setuptools>=73.0.0`, `wheel`
+-   **Build Backend:** `setuptools.build_meta`
+-   **Packages:** `langgraph_mcp` (sourced from `src/langgraph_mcp`) 
+
+---
+# LangGraph Integration Details
+
+This document details how LangGraph is configured and integrated into the project, based on the `langgraph.json` file.
+
+## Configuration (`langgraph.json`)
+
+```json
+{
+    "name": "LangGraph Solution Template for MCP",
+    "version": "1.0.0",
+    "python_version": "3.12",
+    "dependencies": ["."],
+    "graphs": {
+      "index_builder": "./src/langgraph_mcp/with_retriever/index_builder.py:graph",
+      "assist_with_retriever": "./src/langgraph_mcp/with_retriever/graph.py:graph",
+      "assist_with_planner": "./src/langgraph_mcp/with_planner/graph.py:graph",
+      "assist_with_planner_n_prompts": "./src/langgraph_mcp/with_planner_n_prompts/graph.py:graph"
+    },
+    "env": ".env"
+}
+```
+
+## Key Aspects
+
+*   **Name & Version:** Defines the LangGraph project name and version (distinct from the Python package version in `pyproject.toml`).
+*   **Python Version:** Specifies the target Python version (`3.12`).
+*   **Dependencies:** Indicates project dependencies relevant to LangGraph CLI deployment (`.` means the current project).
+*   **Graphs:** This is the core mapping that defines the available LangGraph graphs and their entry points.
+    *   Each key (e.g., `index_builder`, `assist_with_retriever`) is an identifier for a graph.
+    *   The value specifies the Python file and the graph object within that file (e.g., `./src/langgraph_mcp/with_retriever/index_builder.py:graph` points to the `graph` object in `index_builder.py`).
+    *   This allows the LangGraph CLI and API server to discover and serve these specific graphs.
+*   **Environment:** Specifies the environment file (`.env`) to load for configuration variables. 
+
+---
+# Implemented Assistant Strategies
+
+This project includes several distinct strategies for implementing the LangGraph-based universal assistant. Each strategy represents a different approach to orchestrating the interaction between the user, the assistant, and the MCP servers.
+
+Below are links to the detailed documentation for each strategy:
+
+*   **[With Planner](./with_planner.md):** This strategy utilizes a planning agent to decide which MCP server and tool to use based on the user query and available MCP capabilities.
+*   **[With Retriever](./with_retriever.md):** This strategy employs a retriever component. It first builds an index of MCP server capabilities (tools, prompts, resources) using the `index_builder` graph. The main `assist_with_retriever` graph then uses this index to find the relevant MCP server and tool for the user query before invoking it.
+*   **[With Planner and Multiple Prompts](./with_planner_n_prompts.md):** An enhanced version of the planner strategy that utilizes multiple, potentially specialized prompts to guide the planning agent's decision-making process for selecting MCP tools. 
+
+---
+# Strategy: With Planner
+
+This strategy uses a dedicated "planner" agent to analyze the conversation history and decide the next steps, including which MCP server (expert) and tool to invoke.
+
+## Files
+
+*   **Configuration (`config.py`):** Defines configurable parameters for this strategy.
+*   **State (`state.py`):** Defines the specific state managed by this graph, extending the common `InputState`.
+*   **Graph (`graph.py`):** Implements the LangGraph workflow for this strategy.
+*   **Prompts (`prompts.py`):** Contains the system prompts used by the planner, orchestrator, task assessment, and response generation LLMs.
+
+## Configuration (`config.py`)
+
+Key configurable aspects:
+
+*   `mcp_server_config`: Dictionary holding configurations for all available MCP servers.
+*   `planner_system_prompt`: System prompt guiding the planner LLM.
+*   `planner_model`: LLM used for the planning step (e.g., `openai/gpt-4o`).
+*   `orchestrate_system_prompt`: System prompt guiding the orchestrator LLM.
+*   `orchestrate_model`: LLM used for the orchestration/tool-calling step (e.g., `openai/gpt-4o`).
+*   `task_assessment_system_prompt`: System prompt for evaluating task completion status.
+*   `task_assessment_model`: LLM used for task completion assessment.
+*   `generate_response_system_prompt`: System prompt for generating final responses after plan completion.
+*   `generate_response_model`: LLM used for generating final responses.
+*   Includes methods (`get_mcp_server_descriptions`, `build_experts_context`) to format MCP server info for the planner prompt.
+
+## State (`state.py`)
+
+Extends the base `InputState` (which contains `messages`) with:
+
+*   `planner_result`: An optional `PlannerResult` object containing:
+    *   `decision`: Whether to `continue` the current plan or `replace` it.
+    *   `plan`: A list of `Task` objects (each with `expert` name and `task` description).
+    *   `next_task`: Index of the task to execute next.
+    *   `clarification`: Optional message if the planner needs more info.
+*   `task_completed`: Boolean flag indicating if the current task has been completed.
+
+## Graph Workflow (`graph.py`)
+
+1.  **START -> `planner`:**
+    *   Receives the current `State` (messages).
+    *   Uses the `planner_model` and `planner_system_prompt`.
+    *   Considers the message history, available MCP servers (`experts`), and any existing plan.
+    *   Generates a `PlannerResult` (plan, next task, decision, optional clarification).
+    *   Updates the state with the `planner_result` and any clarification message.
+2.  **`planner` -> `decide_planner_edge`:**
+    *   If the `planner_result` contains a plan (`plan` list is not empty), transitions to `orchestrate`.
+    *   Otherwise (no plan generated or planner decided to end), transitions to `END`.
+3.  **`orchestrate`:**
+    *   Receives the `State` including the `planner_result`.
+    *   Identifies the `current_task` based on `planner_result.next_task`.
+    *   Uses the `orchestrate_model` and `orchestrate_system_prompt`.
+    *   Formats a prompt including message history, the full plan, and the specific `current_task` description.
+    *   Fetches available tools for the `current_task.expert` (MCP server) using `mcp.GetTools()` via the `mcp_wrapper.apply` function.
+    *   Binds these tools to the `orchestrate_model`.
+    *   Invokes the model. The model might:
+        *   Respond directly to the user.
+        *   Decide to call one of the bound tools.
+        *   Indicate it doesn't know how to proceed (`IDK_TAG`).
+    *   Updates the `messages` in the state with the AI response (which might include tool calls).
+4.  **`orchestrate` -> `decide_orchestrate_edge`:**
+    *   If the last message contains `tool_calls`, transitions to `call_tool`.
+    *   If the last message contains `IDK_TAG` or is asking for human input, transitions to `END`.
+    *   Otherwise, transitions to `assess_task`.
+5.  **`call_tool`:**
+    *   Identifies the `current_task.expert` (MCP server).
+    *   Extracts the `tool_call` details from the last AI message.
+    *   Uses `mcp.RunTool()` via the `mcp_wrapper.apply` function to execute the tool on the specified MCP server.
+    *   Adds the `ToolMessage` (containing the result or error) to the state.
+6.  **`call_tool` -> `assess_task_completion`:** After executing the tool, transitions to assess if the task is complete.
+7.  **`assess_task_completion`:**
+    *   Uses the `task_assessment_model` and `task_assessment_system_prompt`.
+    *   Provides the `current_task.task` description and recent messages as context.
+    *   Evaluates if the task has been completed successfully.
+    *   Updates the `task_completed` flag in the state based on the assessment.
+8.  **`assess_task_completion` -> `decide_task_assessment_edge`:**
+    *   If `task_completed` is `True`, transitions to `advance_to_next_task`.
+    *   If `task_completed` is `False`, transitions back to `orchestrate` to continue working on the current task.
+9.  **`advance_to_next_task`:**
+    *   Increments the `next_task` index in `planner_result`.
+    *   Resets `task_completed` to `False`.
+10. **`advance_to_next_task` -> `decide_next_task_edge`:**
+    *   If there are more tasks in the plan, transitions back to `orchestrate` to work on the next task.
+    *   If all tasks are completed, transitions to `generate_response`.
+11. **`generate_response`:**
+    *   Uses the `generate_response_model` and `generate_response_system_prompt`.
+    *   Considers the full conversation history.
+    *   Generates a final summary response for the user.
+    *   Resets the `planner_result` to `None` for the next conversation.
+12. **`generate_response` -> `END`:** The workflow concludes. 
+
+---
+# Strategy: With Retriever
+
+This strategy uses a retriever to find the most relevant MCP server for a given user query based on indexed descriptions of the servers' capabilities.
+
+## Files
+
+*   **Configuration (`config.py`):** Defines configuration for embedding models, retriever provider (e.g., Milvus), search parameters, MCP servers, and LLMs/prompts for query generation, routing, and orchestration.
+*   **State (`state.py`):** Defines two state classes:
+    *   `BuilderState`: Used by the `index_builder` graph (contains just a `status` field).
+    *   `State`: Used by the main assistant graph, extending `InputState` with `queries` (list of generated search queries), `retrieved_docs` (documents retrieved from the index), and `current_mcp_server` (the server selected by the router).
+*   **Graph (`graph.py`):** Implements the main LangGraph assistant workflow for this strategy.
+*   **Index Builder (`index_builder.py`):** Implements a separate LangGraph graph responsible for fetching MCP server descriptions and building the vector index used by the retriever.
+*   **Retriever (`retriever.py`):** Contains factory functions (`make_text_encoder`, `make_milvus_retriever`, `make_retriever`) to create the embedding model and the vector store retriever (currently supports Milvus) based on the configuration.
+*   **Prompts (`prompts.py`):** Contains system prompts for routing query generation, routing response generation, and MCP orchestration.
+*   **Utils (`utils.py`):** Contains utility functions specific to this strategy (e.g., `format_docs`).
+
+## Index Builder Workflow (`index_builder.py`)
+
+This graph is typically run once or periodically to update the retriever's index.
+
+1.  **START -> `build_router`:**
+    *   Reads `mcp_server_config` from the configuration.
+    *   Uses `asyncio.gather` and the `mcp_wrapper.apply` function with `mcp.RoutingDescription` to fetch descriptions (tools, prompts, resources) from all configured MCP servers concurrently.
+    *   Creates `langchain_core.documents.Document` objects for each server, storing the description in `page_content` and the server name in `metadata["id"]`.
+    *   Uses the `make_retriever` factory function to get an instance of the configured retriever (e.g., Milvus).
+    *   Adds the created documents to the retriever's vector store, using the server name as the ID (important for potential updates/deletions).
+    *   Updates the `BuilderState` status to `success` or `failure`.
+
+## Main Assistant Graph Workflow (`graph.py`)
+
+This graph handles user interaction.
+
+1.  **START -> `decide_subgraph`:** Determines the initial routing based on whether `current_mcp_server` is set in the state. Initially, it's not set, so it routes to the **MCP Server Router** sub-graph.
+
+**MCP Server Router Sub-graph:**
+
+2.  **`generate_routing_query`:**
+    *   If it's the first message, uses the user input directly as the query.
+    *   Otherwise, uses the `routing_query_model` and `routing_query_system_prompt` to generate a refined search query based on the conversation history.
+    *   Adds the generated query to `state.queries`.
+3.  **`generate_routing_query` -> `retrieve`:**
+    *   Uses the latest query from `state.queries`.
+    *   Calls the `make_retriever` factory to get the retriever.
+    *   Invokes the retriever (`ainvoke`) with the query and configured `search_kwargs`.
+    *   Stores the retrieved documents (containing MCP server descriptions) in `state.retrieved_docs`.
+4.  **`retrieve` -> `route`:**
+    *   Uses the `routing_response_model` and `routing_response_system_prompt`.
+    *   Provides the message history and the formatted `retrieved_docs` to the model.
+    *   The prompt instructs the model to identify the single most relevant MCP server based on the retrieved docs or state if no server is relevant (`NOTHING_RELEVANT`) or if clarification is needed (`AMBIGUITY_PREFIX`).
+    *   If a relevant server is identified, updates `state.current_mcp_server` with its name.
+    *   If no server is relevant or clarification is needed, adds the model's response to `state.messages`.
+5.  **`route` -> `decide_mcp_or_not`:**
+    *   If `state.current_mcp_server` was set (a server was chosen), transitions to the **MCP Orchestrator** sub-graph (`mcp_orchestrator` node).
+    *   Otherwise (no server chosen or ambiguity), transitions to `END`.
+
+**MCP Orchestrator Sub-graph:**
+
+6.  **`mcp_orchestrator`:**
+    *   Gets the `current_mcp_server` name from the state.
+    *   Fetches the server's configuration.
+    *   Uses `mcp.GetTools()` via `mcp_wrapper.apply` to get the tools offered by this server.
+    *   Uses the `mcp_orchestrator_model` and `mcp_orchestrator_system_prompt`.
+    *   The prompt includes message history and descriptions of *other* available MCP servers.
+    *   The prompt instructs the model to use the tools of the *current* server if appropriate, respond that the current server cannot help (`IDK_RESPONSE`), or indicate that other servers are more relevant (`OTHER_SERVERS_MORE_RELEVANT`).
+    *   Binds the fetched tools to the model.
+    *   Invokes the model.
+    *   If the response is `IDK_RESPONSE` or `OTHER_SERVERS_MORE_RELEVANT` (and not immediately after a tool call), it resets `state.current_mcp_server` to `None` to trigger re-routing via the **MCP Server Router** sub-graph on the next turn.
+    *   Otherwise, adds the AI response (which might contain tool calls) to `state.messages`.
+7.  **`mcp_orchestrator` -> `route_tools`:**
+    *   If the last message was a `HumanMessage` or a `ToolMessage`, routes back to `generate_routing_query` to potentially re-route based on the new input or tool result.
+    *   If the last AI message contains `tool_calls`, routes to `mcp_tool_call`.
+    *   Otherwise, routes to `END`.
+8.  **`mcp_tool_call`:**
+    *   Gets the `current_mcp_server` name and config.
+    *   Extracts the tool call details from the last AI message.
+    *   Uses `mcp.RunTool()` via `mcp_wrapper.apply` to execute the tool.
+    *   Adds the `ToolMessage` result to `state.messages`.
+9.  **`mcp_tool_call` -> `route_tools`:** Always routes back to `route_tools` after a tool call to handle the result (which will typically lead back to `generate_routing_query`). 
+
+---
+# Strategy: With Planner and Multiple Prompts
+
+This strategy enhances the basic planner by incorporating the ability to discover and utilize specific prompts offered by MCP servers (experts) to potentially improve task execution.
+
+## Files
+
+*   **Configuration (`config.py`):** Extends the base planner configuration with parameters for:
+    *   LLMs and prompts for `prompt_discovery`, `task_assessment`, and final `generate_response` steps.
+    *   `prompt_confidence_threshold`: For automatically selecting a discovered prompt.
+    *   `prompt_suggestion_threshold`: For suggesting prompts to the user.
+*   **State (`state.py`):** Extends the base planner state (`InputState`, `PlannerResult`, `Task`) with:
+    *   `expert_prompts`: A list of `ExpertPrompt` objects discovered for the current task.
+    *   `selected_prompt`: The `ExpertPrompt` chosen (automatically or by the user) for the current task.
+    *   `task_completed`: A boolean flag indicating if the current task is considered complete.
+*   **Graph (`graph.py`):** Implements the more complex LangGraph workflow.
+*   **Prompts (`prompts.py`):** Contains system prompts for all LLM steps (planner, orchestrator, prompt discovery, task assessment, response generation).
+
+## Graph Workflow (`graph.py`)
+
+This workflow builds upon the basic planner by adding steps for prompt discovery, selection, and task assessment.
+
+1.  **START -> `planner`:** Same as the basic planner strategy: generates/updates the plan (`PlannerResult`) based on conversation history and available experts. Adds `planner_result` to state.
+2.  **`planner` -> `decide_planner_edge`:**
+    *   If a plan exists (`state.planner_result.plan`), transitions to `discover_expert_prompts`.
+    *   Otherwise, transitions to `END`.
+3.  **`discover_expert_prompts`:**
+    *   Identifies the `current_task` and `expert` from `state.planner_result`.
+    *   Fetches the expert's MCP server configuration.
+    *   Uses `mcp.GetPrompts()` via `mcp_wrapper.apply` to retrieve prompts offered by the expert server.
+    *   Uses the `prompt_discovery_model` and `prompt_discovery_system_prompt` to evaluate the relevance (match confidence) of each fetched prompt to the `current_task.task`, considering recent messages.
+    *   Stores the evaluated prompts (as `ExpertPrompt` objects, sorted by confidence) in `state.expert_prompts`.
+4.  **`discover_expert_prompts` -> `select_prompt`:**
+    *   Checks if any `expert_prompts` were found.
+    *   Finds the prompt with the highest `match_confidence`.
+    *   If the confidence exceeds `prompt_confidence_threshold`, automatically sets this prompt in `state.selected_prompt`.
+    *   Otherwise, leaves `state.selected_prompt` as `None`.
+5.  **`select_prompt` -> `decide_prompt_edge`:**
+    *   If `state.selected_prompt` is set (auto-selected), transitions to `orchestrate_tools`.
+    *   If no prompt is auto-selected, but there are prompts in `state.expert_prompts` exceeding `prompt_suggestion_threshold`, transitions to `ask_user_for_prompt`.
+    *   Otherwise (no suitable prompts found/suggested), transitions to `orchestrate_tools` (labeled as `no_prompts` edge, but leads to the same node).
+6.  **`ask_user_for_prompt`:**
+    *   Filters `state.expert_prompts` based on `prompt_suggestion_threshold`.
+    *   Constructs an `AIMessage` listing the filtered prompts with numbers, descriptions, and confidence scores, asking the user to choose one or reply 'none'.
+    *   Adds this message to `state.messages`.
+7.  **`ask_user_for_prompt` -> `process_user_prompt_choice`:** (Waits for user input)
+    *   Parses the last `HumanMessage` from `state.messages`.
+    *   If the user chose a valid number corresponding to a suggested prompt, sets that prompt in `state.selected_prompt`.
+    *   If the user replied 'none' or gave an invalid response, leaves `state.selected_prompt` as `None`.
+8.  **`process_user_prompt_choice` -> `orchestrate_tools`:** Always proceeds to orchestration after processing the user's choice (or lack thereof).
+9.  **`orchestrate_tools`:**
+    *   Similar to the basic planner's `orchestrate` node, but includes the `state.selected_prompt` (if any) in the context for the `orchestrate_model`.
+    *   Fetches tools for the `current_task.expert` using `mcp.GetTools()`.
+    *   Binds tools and invokes the `orchestrate_model` with the appropriate system prompt and context (including messages, plan, task, and selected prompt details).
+    *   Adds the AI response (potentially including tool calls) to `state.messages`.
+10. **`orchestrate_tools` -> `decide_orchestrate_tools_edge`:**
+    *   If the last message contains `tool_calls`, transitions to `call_tool`.
+    *   If the last message does *not* contain tool calls (meaning the orchestrator provided a response or finished its part of the task), transitions to `assess_task_completion`.
+    *   (Includes an `END` transition, although the logic seems to favor `assess_task_completion` when no tool call is made).
+11. **`call_tool`:**
+    *   Same as the basic planner: executes the tool specified in the last AI message using `mcp.RunTool()` via `mcp_wrapper.apply`.
+    *   Adds the `ToolMessage` result to `state.messages`.
+12. **`call_tool` -> `assess_task_completion`:** After a tool is called, proceeds to assess if the task is now complete.
+13. **`assess_task_completion`:**
+    *   Uses the `task_assessment_model` and `task_assessment_system_prompt`.
+    *   Provides the `current_task.task` and recent messages as context.
+    *   The model outputs a `TaskAssessmentResult` (boolean `is_completed`, `explanation`, `confidence`).
+    *   Sets the `state.task_completed` flag based on the model's assessment.
+14. **`assess_task_completion` -> `decide_task_assessment_edge`:**
+    *   If `state.task_completed` is `True`, transitions to `advance_to_next_task`.
+    *   If `state.task_completed` is `False`, transitions back to `orchestrate_tools` to continue working on the current task (potentially using the tool result from the previous step).
+15. **`advance_to_next_task`:**
+    *   Increments the `next_task` index in `state.planner_result`.
+    *   Resets `state.task_completed` to `False`.
+    *   Clears `state.expert_prompts` and `state.selected_prompt` for the next task.
+16. **`advance_to_next_task` -> `decide_next_task_edge`:**
+    *   Checks if `state.planner_result.next_task` is still within the bounds of the `plan`.
+    *   If there is a next task, transitions back to `discover_expert_prompts` to start the process for the new task.
+    *   If all tasks in the plan are completed, transitions to `generate_response`.
+17. **`generate_response`:**
+    *   Uses the `generate_response_model` and `generate_response_system_prompt`.
+    *   Provides the full message history and the completed plan as context.
+    *   Generates a final summary response for the user.
+    *   Adds this final `AIMessage` to `state.messages`.
+    *   Resets `state.planner_result` to `None`.
+18. **`generate_response` -> `END`:** The workflow concludes. 
+
+---
+# Common Code Patterns and Conventions
+
+This document outlines recurring code patterns and conventions used throughout the `langgraph-mcp` project. Understanding these patterns is crucial for diagnostics and enhancements.
+
+## 1. LangGraph Node Implementation (LLM Interaction)
+
+Nodes within the LangGraph graphs that involve Large Language Model (LLM) calls generally follow this pattern (example from `with_planner/graph.py`'s `planner` node):
+
+```python
+async def planner(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
+    # 1. Get Configuration: Load strategy-specific config
+    configuration = Configuration.from_runnable_config(config)
+    
+    # 2. Define Prompt Template: Use ChatPromptTemplate with system prompt and placeholders
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", configuration.planner_system_prompt),
+        ("placeholder", "{messages}"),
+        # Potentially other placeholders like {experts}, {plan}, {task}, {retrieved_docs}...
+    ])
+    
+    # 3. Load LLM: Use the common utility function
+    model = load_chat_model(configuration.planner_model)
+    
+    # 4. Prepare Context: Gather necessary data from state and config
+    experts = configuration.build_experts_context()
+    current_plan = state.planner_result.plan if state.planner_result else []
+    
+    # 5. Invoke Prompt: Format the prompt with the context
+    context = await prompt.ainvoke({
+        "messages": state.messages,
+        "experts": experts,
+        "plan": current_plan,
+        "system_time": datetime.now(tz=timezone.utc).isoformat(),
+    }, config)
+    
+    # 6. Invoke Model (Potentially with Structured Output):
+    # Use .with_structured_output(PydanticModel) if expecting specific format
+    response = await model.with_structured_output(PlannerResult).ainvoke(context, config)
+    
+    # 7. Prepare State Update: Create a dictionary with state keys to update
+    result = {"planner_result": response}
+    if response.clarification:
+        result["messages"] = [AIMessage(content=response.clarification)]
+        
+    # 8. Return Update: LangGraph merges this dictionary into the state
+    return result
+```
+
+**Key Steps:**
+
+1.  **Configuration:** Each node receives the `RunnableConfig` and uses the strategy's `Configuration.from_runnable_config` method to access relevant settings (models, prompts, server configs).
+2.  **Prompt Template:** `langchain_core.prompts.ChatPromptTemplate` is used to structure the input to the LLM, often combining a system prompt with placeholders for dynamic data like message history, task details, or retrieved documents.
+3.  **Load LLM:** The `src.langgraph_mcp.utils.load_chat_model` utility function is consistently used to instantiate the LLM client based on a `provider/model` string from the configuration.
+4.  **Context Preparation:** Data needed for the prompt placeholders is gathered from the current `state` and `configuration`.
+5.  **Invoke Prompt:** The prompt template's `ainvoke` method formats the final input for the LLM.
+6.  **Invoke Model:** The loaded model's `ainvoke` method is called. `.with_structured_output(PydanticModel)` is frequently used when the LLM is expected to return data matching a specific Pydantic schema (e.g., `PlannerResult`, `ExpertPrompt`, `TaskAssessmentResult`).
+7.  **Prepare State Update:** The node returns a dictionary where keys match the fields in the graph's `State` class. LangGraph uses this dictionary to update the state.
+
+## 2. Loading Language Models (LLMs and Embeddings)
+
+### Chat Models
+
+The `src.langgraph_mcp.utils.load_chat_model(fully_specified_name: str)` function provides a standardized way to load chat models:
+
+*   It expects a `fully_specified_name` string in the format `"provider/model-name"` (e.g., `"openai/gpt-4o"`).
+*   It parses the provider and model name.
+*   It uses `langchain.chat_models.init_chat_model(model, model_provider=provider)` to instantiate the appropriate LangChain chat model client.
+
+### Embedding Models
+
+For embedding models used in the `with_retriever` strategy, the `src.langgraph_mcp.with_retriever.retriever.make_text_encoder(model: str)` function is used:
+
+*   Similar to `load_chat_model`, it takes a `"provider/model-name"` string (e.g., `"openai/text-embedding-3-large"`).
+*   It uses a `match` statement on the provider to import and instantiate the correct LangChain embedding class (e.g., `langchain_openai.OpenAIEmbeddings`).
+
+## 3. Interfacing with MCP Servers (`mcp_wrapper.py`)
+
+Interaction with MCP servers is standardized through the `src.langgraph_mcp.mcp_wrapper` module, employing a Strategy Pattern:
+
+*   **Abstract Base Class (`MCPSessionFunction`):** Defines the interface with an `async def __call__(self, server_name: str, session: ClientSession) -> Any:` method.
+*   **Concrete Strategy Classes:** Implement `MCPSessionFunction` for specific MCP operations:
+    *   `RoutingDescription`: Fetches tools, prompts, and resources to generate a server description.
+    *   `GetTools`: Fetches tools and formats them for LangChain/LangGraph use.
+    *   `GetPrompts`: Fetches available prompts from the server.
+    *   `RunTool`: Executes a specific tool on the server with given arguments.
+*   **Unified Executor (`apply` function):**
+    *   `async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -> Any:`
+    *   Takes the server name, its configuration (`server_config`), and an instance of an `MCPSessionFunction` (`fn`).
+    *   Determines whether to connect using `mcp.stdio_client` (for standard MCP servers defined in `mcpServers`) or `mcp.client.websocket.websocket_client` (for Smithery-hosted servers defined in `smithery`, identified by the presence of a `url` key in the config).
+    *   Establishes the `ClientSession`.
+    *   Calls the strategy instance: `await fn(server_name, session)`.
+
+**Usage within Graph Nodes:**
+
+Nodes needing to interact with an MCP server use this pattern:
+
+```python
+# Example from with_planner_n_prompts/graph.py -> discover_expert_prompts
+
+# Get server name (e.g., from current_task.expert)
+server_name = current_task.expert
+
+# Get server config (e.g., using utils.get_server_config)
+server_config = get_server_config(server_name, configuration.mcp_server_config)
+
+# Call the wrapper with the specific action 
+prompts_response = await mcp.apply(
+    server_name, 
+    server_config, 
+    mcp.GetPrompts() # Instance of the desired MCPSessionFunction
+)
+
+# Example from with_planner/graph.py -> call_tool
+tool_call = state.messages[-1].tool_calls[0]
+tool_output = await mcp.apply(
+    current_task.expert, 
+    server_config, 
+    mcp.RunTool(tool_call['name'],**tool_call['args']) # Pass tool name/args
+)
+```
+
+This pattern abstracts the details of session management and specific MCP commands, making the graph nodes cleaner and focused on their orchestration logic. 
