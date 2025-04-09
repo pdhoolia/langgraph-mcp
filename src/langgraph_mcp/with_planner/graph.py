@@ -59,10 +59,10 @@ async def planner(state: State, *, config: RunnableConfig) -> dict[str, list[Bas
 
 def decide_planner_edge(state: State) -> str:
     if state.planner_result.plan:
-        return "orchestrate"
+        return "orchestrate_tools"
     return END
 
-async def orchestrate(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
+async def orchestrate_tools(state: State, *, config: RunnableConfig, special_instructions: str = None) -> dict[str, list[BaseMessage]]:
     # get configurations
     configuration = Configuration.from_runnable_config(config)
     # build a chat prompt template with instructions for orchestrating across expert tools
@@ -85,6 +85,7 @@ async def orchestrate(state: State, *, config: RunnableConfig) -> dict[str, list
             "plan": current_plan,
             "task": current_task.task if current_task else "",
             "idk_tag": IDK_TAG,
+            "special_instructions": special_instructions,
             "system_time": datetime.now(tz=timezone.utc).isoformat(),
         },
         config,
@@ -100,24 +101,23 @@ async def orchestrate(state: State, *, config: RunnableConfig) -> dict[str, list
     response = await model.ainvoke(context, config)
     return {"messages": [response]}
 
-def decide_orchestrate_edge(state: State) -> Literal["call_tool", "assess_task", "end"]:
-    """Decide the next step after orchestration."""
+def decide_orchestrate_tools_edge(state: State) -> Literal["call_tool", "assess_task", "end"]:
+    """Decide what to do after orchestration."""
+    if not state.messages:
+        return "end"
+    
     last_message = state.messages[-1]
     
-    # If the last message contains tool calls, execute them
-    if last_message.model_dump().get('tool_calls'):
+    # Check if the last message has tool calls
+    if isinstance(last_message, AIMessage) and last_message.tool_calls:
         return "call_tool"
     
-    # If the message indicates expert doesn't know how to proceed, end the flow
-    if IDK_TAG in last_message.content:
-        return "end"
-        
-    # If the message is asking for human input, end the current flow
-    if "I need more information from you" in last_message.content:
-        return "end"
+    # If this is a task completion, check assessment
+    if isinstance(last_message, (AIMessage, ToolMessage)):
+        return "assess_task"
     
-    # Otherwise, assess if the current task is complete
-    return "assess_task"
+    # Default end: this covers IDK_TAG case as well as ASK_USER case
+    return "end"
 
 async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
     # Get the current task
@@ -180,11 +180,11 @@ async def assess_task_completion(state: State, *, config: RunnableConfig) -> dic
     # Return the task completion status
     return {"task_completed": result.is_completed and result.confidence >= 0.7}
 
-def decide_task_assessment_edge(state: State) -> Literal["next_task", "orchestrate"]:
+def decide_task_assessment_edge(state: State) -> Literal["next_task", "orchestrate_tools"]:
     """Decide whether to move to the next task or continue with the current one."""
     if state.task_completed:
         return "next_task"
-    return "orchestrate"
+    return "orchestrate_tools"
 
 def advance_to_next_task(state: State) -> dict[str, Union[PlannerResult, bool]]:
     """Advance to the next task in the plan."""
@@ -205,11 +205,11 @@ def advance_to_next_task(state: State) -> dict[str, Union[PlannerResult, bool]]:
     
     return result
 
-def decide_next_task_edge(state: State) -> Literal["orchestrate", "generate_response"]:
+def decide_next_task_edge(state: State) -> Literal["orchestrate_tools", "generate_response"]:
     """Decide whether there are more tasks or the plan is complete."""
     if (state.planner_result and 
         state.planner_result.next_task < len(state.planner_result.plan)):
-        return "orchestrate"
+        return "orchestrate_tools"
     return "generate_response"
 
 async def generate_response(state: State, *, config: RunnableConfig) -> dict[str, Union[list[BaseMessage], PlannerResult]]:
@@ -251,7 +251,7 @@ builder = StateGraph(State, input=InputState, config_schema=Configuration)
 
 # Add all the nodes
 builder.add_node("planner", planner)
-builder.add_node("orchestrate", orchestrate)
+builder.add_node("orchestrate_tools", orchestrate_tools)
 builder.add_node("call_tool", call_tool)
 builder.add_node("assess_task_completion", assess_task_completion)
 builder.add_node("advance_to_next_task", advance_to_next_task)
@@ -263,13 +263,13 @@ builder.add_conditional_edges(
     "planner",
     decide_planner_edge,
     {
-        "orchestrate": "orchestrate",
+        "orchestrate_tools": "orchestrate_tools",
         END: END,
     }
 )
 builder.add_conditional_edges(
-    "orchestrate",
-    decide_orchestrate_edge,
+    "orchestrate_tools",
+    decide_orchestrate_tools_edge,
     {
         "call_tool": "call_tool",
         "assess_task": "assess_task_completion",
@@ -282,14 +282,14 @@ builder.add_conditional_edges(
     decide_task_assessment_edge,
     {
         "next_task": "advance_to_next_task",
-        "orchestrate": "orchestrate",
+        "orchestrate_tools": "orchestrate_tools",
     }
 )
 builder.add_conditional_edges(
     "advance_to_next_task",
     decide_next_task_edge,
     {
-        "orchestrate": "orchestrate",
+        "orchestrate_tools": "orchestrate_tools",
         "generate_response": "generate_response",
     }
 )
