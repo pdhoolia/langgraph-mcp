@@ -17,8 +17,8 @@ The core idea is to implement a multi-agent pattern where an assistant routes us
 
 -   `src/langgraph_mcp/`: Contains the core source code.
     -   `with_planner/`: Implementation strategy using a planner agent.
+        -   `with_prompts/`: Enhanced implementation that adds MCP server prompt discovery and utilization on top of the base planner strategy.
     -   `with_retriever/`: Implementation strategy using a retriever and an index builder.
-    -   `with_planner_n_prompts/`: Implementation strategy using a planner with multiple prompts.
     -   `state.py`: Defines the common state shared across graphs.
     -   `utils.py`: Common utility functions (e.g., loading models).
     -   `mcp_wrapper.py`: Handles interaction with MCP servers.

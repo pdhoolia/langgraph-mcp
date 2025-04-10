@@ -1,25 +1,25 @@
-# Strategy: With Planner and Multiple Prompts
+# Strategy: With Planner and Prompts
 
-This strategy enhances the basic planner by incorporating the ability to discover and utilize specific prompts offered by MCP servers (experts) to potentially improve task execution.
+This strategy enhances the basic planner by incorporating the ability to discover and utilize specific prompts offered by MCP servers (experts) to potentially improve task execution. It is implemented as a sub-package within the `with_planner` strategy and fully reuses the planning components (state, config, prompts, and graph nodes/edges) from there.
 
 ## Files
 
-*   **Configuration (`config.py`):** Extends the base planner configuration with parameters for:
+*   **Configuration (`with_planner/with_prompts/config.py`):** Extends the base planner configuration with parameters for:
     *   LLMs and prompts for `prompt_discovery`, `task_assessment`, and final `generate_response` steps.
     *   `prompt_confidence_threshold`: For automatically selecting a discovered prompt.
     *   `prompt_suggestion_threshold`: For suggesting prompts to the user.
-*   **State (`state.py`):** Extends the base planner state (`InputState`, `PlannerResult`, `Task`) with:
+*   **State (`with_planner/with_prompts/state.py`):** Extends the base planner state (`InputState`, `PlannerResult`, `Task`) with:
     *   `expert_prompts`: A list of `ExpertPrompt` objects discovered for the current task.
     *   `selected_prompt`: The `ExpertPrompt` chosen (automatically or by the user) for the current task.
     *   `task_completed`: A boolean flag indicating if the current task is considered complete.
-*   **Graph (`graph.py`):** Implements the more complex LangGraph workflow.
-*   **Prompts (`prompts.py`):** Contains system prompts for all LLM steps (planner, orchestrator, prompt discovery, task assessment, response generation).
+*   **Graph (`with_planner/with_prompts/graph.py`):** Implements the more complex LangGraph workflow.
+*   **Prompts (`with_planner/with_prompts/prompts.py`):** Contains system prompts for prompt discovery, task assessment, and response generation, while reusing the planner and orchestrator prompts from the base planner strategy.
 
 ## Graph Workflow (`graph.py`)
 
 This workflow builds upon the basic planner by adding steps for prompt discovery, selection, and task assessment.
 
-1.  **START -> `planner`:** Same as the basic planner strategy: generates/updates the plan (`PlannerResult`) based on conversation history and available experts. Adds `planner_result` to state.
+1.  **START -> `planner`:** Reuses the base planner's node: generates/updates the plan (`PlannerResult`) based on conversation history and available experts. Adds `planner_result` to state.
 2.  **`planner` -> `decide_planner_edge`:**
     *   If a plan exists (`state.planner_result.plan`), transitions to `discover_expert_prompts`.
     *   Otherwise, transitions to `END`.
@@ -57,7 +57,7 @@ This workflow builds upon the basic planner by adding steps for prompt discovery
     *   If the last message does *not* contain tool calls (meaning the orchestrator provided a response or finished its part of the task), transitions to `assess_task_completion`.
     *   (Includes an `END` transition, although the logic seems to favor `assess_task_completion` when no tool call is made).
 11. **`call_tool`:**
-    *   Same as the basic planner: executes the tool specified in the last AI message using `mcp.RunTool()` via `mcp_wrapper.apply`.
+    *   Reuses the base planner's logic: executes the tool specified in the last AI message using `mcp.RunTool()` via `mcp_wrapper.apply`.
     *   Adds the `ToolMessage` result to `state.messages`.
 12. **`call_tool` -> `assess_task_completion`:** After a tool is called, proceeds to assess if the task is now complete.
 13. **`assess_task_completion`:**
