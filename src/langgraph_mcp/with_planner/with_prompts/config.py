@@ -4,17 +4,17 @@ from dataclasses import dataclass, field
 from typing import Annotated, TypeVar
 
 from langgraph_mcp.with_planner.config import Configuration as BaseConfiguration
-from langgraph_mcp.with_planner_n_prompts import prompts
+from langgraph_mcp.with_planner.with_prompts import prompts
 
 @dataclass(kw_only=True)
 class Configuration(BaseConfiguration):
-    """Configuration for with_planner_n_prompts strategy.
+    """Configuration for with_prompts strategy.
     
     Extends the base with_planner Configuration with additional settings for 
     prompt discovery and selection functionality.
     """
     
-    # Additional fields specific to n_prompts strategy
+    # Additional fields specific to prompts strategy
     prompt_discovery_system_prompt: str = field(
         default=prompts.PROMPT_DISCOVERY_SYSTEM_PROMPT,
         metadata={"description": "The system prompt used for discovering and evaluating prompts from the expert MCP server."},

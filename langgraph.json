@@ -7,7 +7,7 @@
       "index_builder": "./src/langgraph_mcp/with_retriever/index_builder.py:graph",
       "assist_with_retriever": "./src/langgraph_mcp/with_retriever/graph.py:graph",
       "assist_with_planner": "./src/langgraph_mcp/with_planner/graph.py:graph",
-      "assist_with_planner_n_prompts": "./src/langgraph_mcp/with_planner_n_prompts/graph.py:graph"
+      "assist_with_planner_n_prompts": "./src/langgraph_mcp/with_planner/with_prompts/graph.py:graph"
     },
     "env": ".env"
 }

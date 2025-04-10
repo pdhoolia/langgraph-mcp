@@ -25,9 +25,9 @@ from langgraph_mcp.with_planner.graph import (
     planner
 )
 
-from langgraph_mcp.with_planner_n_prompts.config import Configuration
+from langgraph_mcp.with_planner.with_prompts.config import Configuration
 from langgraph_mcp.with_planner.state import PlannerResult
-from langgraph_mcp.with_planner_n_prompts.state import State, ExpertPrompt
+from langgraph_mcp.with_planner.with_prompts.state import State, ExpertPrompt
 
 
 def decide_planner_edge(state: State) -> str:
