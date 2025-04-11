@@ -40,6 +40,15 @@
             "env": {
                 "githubPersonalAccessToken": "YOUR.GITHUB.PERSONAL.ACCESS.TOKEN"
             }
+        },
+        "gmail": {
+            "url": "wss://server.smithery.ai/@rishipradeep-think41/gsuite-mcp/ws",
+            "description": "Gmail and Google calendar operations to list, search, and send emails and calendar invites",
+            "env": {
+                "googleClientId": "YOUR.GOOGLE.CLIENT.ID",
+                "googleClientSecret": "YOUR.GOOGLE.CLIENT.SECRET",
+                "googleRefreshToken": "YOUR.GOOGLE.REFRESH.TOKEN"
+            }
         }
     }
 }
