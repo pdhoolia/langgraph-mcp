@@ -7,3 +7,4 @@ langgraph_mcp.egg-info
 .milvus.db.lock
 milvus.db
 .mcp-servers-config.json
+.credentials.json

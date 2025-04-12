@@ -31,6 +31,16 @@
                 "/Users/pdhoolia/Desktop",
                 "/Users/pdhoolia/fun/langgraph-mcp"
             ]
+        },
+        "gsuite": {
+            "command": "node",
+            "description": "Gmail and Google calendar operations to list, search, and send emails and calendar invites",
+            "args": ["/Users/pdhoolia/gh/pdhoolia/gsuite-mcp/build/index.js"],
+            "env": {
+                "GOOGLE_CLIENT_ID": "YOUR.GOOGLE.CLIENT.ID",
+                "GOOGLE_CLIENT_SECRET": "YOUR.GOOGLE.CLIENT.SECRET",
+                "GOOGLE_REFRESH_TOKEN": "YOUR.GOOGLE.REFRESH.TOKEN"
+            }
         }
     },
     "smithery": {
