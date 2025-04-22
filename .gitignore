@@ -8,3 +8,4 @@ langgraph_mcp.egg-info
 milvus.db
 .mcp-servers-config.json
 .credentials.json
+tmp/
