@@ -110,6 +110,10 @@ def decide_orchestrate_tools_edge(state: State) -> Literal["call_tool", "assess_
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
         return "call_tool"
     
+    # If the message is asking for human input, end the current flow
+    if "I need more information from you" in last_message.content:
+        return "end"
+    
     # If this is a task completion, check assessment
     if isinstance(last_message, (AIMessage, ToolMessage)):
         return "assess_task"
