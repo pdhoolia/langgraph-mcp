@@ -58,6 +58,8 @@ async def planner(state: State, *, config: RunnableConfig) -> dict[str, list[Bas
     return result
 
 def decide_planner_edge(state: State) -> str:
+    if state.planner_result.clarification:
+        return END
     if state.planner_result.plan:
         return "orchestrate_tools"
     return END
