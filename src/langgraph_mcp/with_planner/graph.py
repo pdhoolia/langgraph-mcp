@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
 from typing import Literal, Union
 from pydantic import BaseModel, Field
-from langchain_core.messages import BaseMessage, AIMessage, ToolMessage
+from langchain_core.messages import BaseMessage, AIMessage, ToolMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
+from langgraph.types import interrupt
 
 from langgraph_mcp import mcp_wrapper as mcp
 from langgraph_mcp.state import InputState
@@ -12,7 +13,6 @@ from langgraph_mcp.utils import load_chat_model, get_server_config
 
 from langgraph_mcp.with_planner.config import Configuration
 from langgraph_mcp.with_planner.state import State, PlannerResult
-from langgraph.checkpoint.memory import MemorySaver
 
 # Tags for special message responses
 IDK_TAG = "[::IDK::]"
@@ -100,6 +100,7 @@ async def orchestrate_tools(state: State, *, config: RunnableConfig, special_ins
         model = model.bind_tools(tools)
     # call the model
     response = await model.ainvoke(context, config)
+
     return {"messages": [response]}
 
 def decide_orchestrate_tools_edge(state: State) -> Literal["call_tool", "assess_task", "end"]:
@@ -115,7 +116,7 @@ def decide_orchestrate_tools_edge(state: State) -> Literal["call_tool", "assess_
     
     # If the message is asking for human input, end the current flow
     if "I need more information from you" in last_message.content:
-        return "end"
+        return "human_input"
     
     # If this is a task completion, check assessment
     if isinstance(last_message, (AIMessage, ToolMessage)):
@@ -123,6 +124,14 @@ def decide_orchestrate_tools_edge(state: State) -> Literal["call_tool", "assess_
     
     # Default end: this covers IDK_TAG case as well as ASK_USER case
     return "end"
+
+def human_input(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
+    last_message = state.messages[-1]
+    human_message = interrupt(last_message.content)
+    return {
+        "messages": [HumanMessage(content=human_message)]
+    }
+
 
 async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[BaseMessage]]:
     # Get the current task
@@ -257,6 +266,7 @@ builder = StateGraph(State, input=InputState, config_schema=Configuration)
 # Add all the nodes
 builder.add_node("planner", planner)
 builder.add_node("orchestrate_tools", orchestrate_tools)
+builder.add_node("human_input", human_input)
 builder.add_node("call_tool", call_tool)
 builder.add_node("assess_task_completion", assess_task_completion)
 builder.add_node("advance_to_next_task", advance_to_next_task)
@@ -277,11 +287,13 @@ builder.add_conditional_edges(
     decide_orchestrate_tools_edge,
     {
         "call_tool": "call_tool",
+        "human_input": "human_input",
         "assess_task": "assess_task_completion",
         "end": END,
     }
 )
 builder.add_edge("call_tool", "assess_task_completion")
+builder.add_edge("human_input", "orchestrate_tools")
 builder.add_conditional_edges(
     "assess_task_completion",
     decide_task_assessment_edge,
@@ -300,9 +312,6 @@ builder.add_conditional_edges(
 )
 builder.add_edge("generate_response", END)
 
-# A checkpointer is required for 'interrupt' to work
-checkpointer = MemorySaver()
-
 # Compile the graph
-graph = builder.compile(checkpointer=checkpointer)
+graph = builder.compile()
 graph.name = "AssistantGraphWithPlanner"
