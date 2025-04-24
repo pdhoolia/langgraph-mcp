@@ -12,6 +12,7 @@ from langgraph_mcp.utils import load_chat_model, get_server_config
 
 from langgraph_mcp.with_planner.config import Configuration
 from langgraph_mcp.with_planner.state import State, PlannerResult
+from langgraph.checkpoint.memory import MemorySaver
 
 # Tags for special message responses
 IDK_TAG = "[::IDK::]"
@@ -299,6 +300,9 @@ builder.add_conditional_edges(
 )
 builder.add_edge("generate_response", END)
 
+# A checkpointer is required for 'interrupt' to work
+checkpointer = MemorySaver()
+
 # Compile the graph
-graph = builder.compile()
+graph = builder.compile(checkpointer=checkpointer)
 graph.name = "AssistantGraphWithPlanner"
