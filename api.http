@@ -1,3 +1,6 @@
+# @model = llama-4-scout-17b-16e-instruct
+@model = llama-3.3-70b-instruct
+
 ### Disambiguate
 POST http://localhost:1234/v1/chat/completions
 Content-Type: application/json
@@ -13,7 +16,7 @@ Content-Type: application/json
       "content": "Get details of my last claim"
     }
   ],
-  "model": "llama-4-scout-17b-16e-instruct",
+  "model": "{{model}}",
   "temperature": 0.0,
   "tools": [
     {
@@ -150,7 +153,7 @@ Content-Type: application/json
       "role": "user"
     }
   ],
-  "model": "llama-4-scout-17b-16e-instruct",
+  "model": "{{model}}",
   "temperature": 0.7,
   "tools": [
     {
