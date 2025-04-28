@@ -85,7 +85,7 @@ async def orchestrate_tools(state: State, *, config: RunnableConfig, special_ins
     context = await prompt.ainvoke(
         {
             "messages": state.messages,
-            "plan": current_plan,
+            "plan": [task.model_dump() for task in current_plan],
             "task": current_task.task if current_task else "",
             "idk_tag": IDK_TAG,
             "special_instructions": special_instructions,
