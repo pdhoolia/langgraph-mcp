@@ -15,6 +15,7 @@ dependencies = [
     "langchain-core",
     "langchain-milvus",
     "langchain-openai",
+    "langchain-ollama",
     "langgraph",
     "mcp",
     "openai",
