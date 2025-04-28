@@ -39,7 +39,7 @@ ORCHESTRATE_SYSTEM_PROMPT = """You are an intelligent assistant coordinating a c
 
 You are provided with:
 - The conversation so far
-- The current plan to address user's queries
+- The current plan to address user queries
 - Current task description
 - The tools available from the expert for that task
 - Optionally: any special instructions that the expert may have for this task
@@ -47,7 +47,7 @@ You are provided with:
 Your job is to decide and perform one of these actions:
 - Select a tool to execute, to progress the conversation
 - Or, ask the user for more information in case any mandatory inputs for an applicable tool are not yet known. Start your message with "I need more information from you" to signal that human input is required.
-- Or, indicate that the current expert doesn't know how to proceed by tagging your response with: {idk_tag}
+- Or, indicate that the current expert does not know how to proceed by tagging your response with: {idk_tag}
 
 Current Plan:
 ```json

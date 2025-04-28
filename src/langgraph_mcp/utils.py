@@ -3,6 +3,8 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AnyMessage
 from typing import Dict, Any
 
+from langchain_openai import ChatOpenAI
+
 
 def get_message_text(msg: AnyMessage) -> str:
     """Get the text content of a message.
@@ -45,7 +47,15 @@ def load_chat_model(fully_specified_name: str) -> BaseChatModel:
     else:
         provider = ""
         model = fully_specified_name
-    return init_chat_model(model, model_provider=provider)
+    if provider == "lm-studio" or model == "lm-studio":
+        return ChatOpenAI(
+            base_url="http://localhost:1234/v1",
+            model=model,
+            temperature=0.7,
+            api_key="lm-studio"
+        )
+    else:
+        return init_chat_model(model, model_provider=provider)
 
 
 def get_server_config(server_name: str, mcp_server_config: Dict[str, Any]) -> Dict[str, Any]:
