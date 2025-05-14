@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 from langchain_core.tools import ToolException
 from mcp import ClientSession, ListPromptsResult, ListResourcesResult, ListToolsResult, StdioServerParameters, stdio_client
-from mcp.client.websocket import websocket_client
+import mcp
+from mcp.client.streamable_http import streamablehttp_client
 import pydantic_core
 import smithery
 
@@ -111,8 +112,10 @@ async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -
         env = {**os.environ, **(server_config.get("env") or {})}
         url = smithery.create_smithery_url(server_config['url'], env) + f"&api_key={env['SMITHERY_API_KEY']}"
         print(f"Starting Smithery session with (server: {server_name})")
-        async with websocket_client(url) as streams:
-            async with ClientSession(*streams) as session:
+        async with streamablehttp_client(url) as (read_stream, write_stream, _):
+            async with mcp.ClientSession(read_stream, write_stream) as session:
+                # Initialize the connection
+                await session.initialize()
                 return await fn(server_name, session)
     else:
         # Handle standard MCP server

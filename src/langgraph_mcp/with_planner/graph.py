@@ -141,8 +141,7 @@ async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[B
 
     # Fetch mcp server config
     configuration = Configuration.from_runnable_config(config)
-    mcp_servers = configuration.mcp_server_config["mcpServers"]
-    server_config = mcp_servers[current_task.expert]
+    server_config = get_server_config(current_task.expert, configuration.mcp_server_config)
 
     # Execute MCP server Tool
     tool_call = state.messages[-1].tool_calls[0]

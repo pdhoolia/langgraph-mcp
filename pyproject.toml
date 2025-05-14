@@ -17,7 +17,7 @@ dependencies = [
     "langchain-openai",
     "langchain-ollama",
     "langgraph",
-    "mcp",
+    "mcp[cli]",
     "openai",
     "python-dotenv",
     "smithery"
