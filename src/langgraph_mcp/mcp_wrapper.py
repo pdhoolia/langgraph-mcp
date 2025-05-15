@@ -109,8 +109,7 @@ async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -
     # Check if this is a Smithery server by looking for 'url' in config
     if 'url' in server_config:
         # Create Smithery URL with server endpoint and config
-        env = {**os.environ, **(server_config.get("env") or {})}
-        url = smithery.create_smithery_url(server_config['url'], env) + f"&api_key={env['SMITHERY_API_KEY']}"
+        url = smithery.create_smithery_url(server_config['url'], server_config.get("env") or {}) + f"&api_key={os.getenv('SMITHERY_API_KEY')}"
         print(f"Starting Smithery session with (server: {server_name})")
         async with streamablehttp_client(url) as (read_stream, write_stream, _):
             async with mcp.ClientSession(read_stream, write_stream) as session:

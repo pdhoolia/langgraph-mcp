@@ -9,3 +9,4 @@ milvus.db
 .mcp-servers-config.json
 .credentials.json
 tmp/
+.mcp-servers-config_smithery_only.json

@@ -86,7 +86,7 @@ Interaction with MCP servers is standardized through the `src.langgraph_mcp.mcp_
 *   **Unified Executor (`apply` function):**
     *   `async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -> Any:`
     *   Takes the server name, its configuration (`server_config`), and an instance of an `MCPSessionFunction` (`fn`).
-    *   Determines whether to connect using `mcp.stdio_client` (for standard MCP servers defined in `mcpServers`) or `mcp.client.websocket.websocket_client` (for Smithery-hosted servers defined in `smithery`, identified by the presence of a `url` key in the config).
+    *   Determines whether to connect using `mcp.stdio_client` (for standard MCP servers defined in `mcpServers`) or `mcp.client.streamable_http.streamablehttp_client` (for Smithery-hosted servers defined in `smithery`, identified by the presence of a `url` key in the config).
     *   Establishes the `ClientSession`.
     *   Calls the strategy instance: `await fn(server_name, session)`.
 
