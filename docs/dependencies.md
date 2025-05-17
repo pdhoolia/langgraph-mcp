@@ -20,7 +20,6 @@ This document outlines the key dependencies and metadata for the `langgraph-mcp`
 -   `asyncio>=3.4.3`
 -   `langchain>=0.2.17`
 -   `langchain-core>=0.3.21`
--   `langchain-milvus>=0.1.7` (Used specifically in the `with_retriever` strategy)
 -   `langchain-openai>=0.2.11`
 -   `langgraph>=0.2.56`
 -   `mcp>=1.0.0` (Model Context Protocol library)

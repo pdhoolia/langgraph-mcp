@@ -1,6 +1,6 @@
 [project]
 name = "langgraph-mcp"
-version = "0.0.1"
+version = "1.0.0"
 description = "LangGraph Solution Template for MCP"
 authors = [
     { name = "Pankaj Dhoolia", email = "pdhoolia@in.ibm.com" },
@@ -13,7 +13,6 @@ dependencies = [
     "asyncio",
     "langchain",
     "langchain-core",
-    "langchain-milvus",
     "langchain-openai",
     "langchain-ollama",
     "langgraph",

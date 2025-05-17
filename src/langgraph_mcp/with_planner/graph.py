@@ -9,7 +9,7 @@ from langgraph.types import interrupt
 
 from langgraph_mcp import mcp_wrapper as mcp
 from langgraph_mcp.state import InputState
-from langgraph_mcp.utils import load_chat_model, get_server_config
+from langgraph_mcp.utils import load_chat_model
 
 from langgraph_mcp.with_planner.config import Configuration
 from langgraph_mcp.with_planner.state import State, PlannerResult
@@ -95,7 +95,7 @@ async def orchestrate_tools(state: State, *, config: RunnableConfig, special_ins
     )
     # get the tools for the current expert using our MCP wrapper and bind them to the model
     if current_task:
-        server_config = get_server_config(current_task.expert, configuration.mcp_server_config)
+        server_config = configuration.get_server_config(current_task.expert)
         tools = await mcp.apply(current_task.expert, server_config, mcp.GetTools())
         model = model.bind_tools(tools)
     # call the model
@@ -141,7 +141,7 @@ async def call_tool(state: State, *, config: RunnableConfig) -> dict[str, list[B
 
     # Fetch mcp server config
     configuration = Configuration.from_runnable_config(config)
-    server_config = get_server_config(current_task.expert, configuration.mcp_server_config)
+    server_config = configuration.get_server_config(current_task.expert)
 
     # Execute MCP server Tool
     tool_call = state.messages[-1].tool_calls[0]

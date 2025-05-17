@@ -11,10 +11,7 @@ This document details how LangGraph is configured and integrated into the projec
     "python_version": "3.12",
     "dependencies": ["."],
     "graphs": {
-      "index_builder": "./src/langgraph_mcp/with_retriever/index_builder.py:graph",
-      "assist_with_retriever": "./src/langgraph_mcp/with_retriever/graph.py:graph",
-      "assist_with_planner": "./src/langgraph_mcp/with_planner/graph.py:graph",
-      "assist_with_planner_n_prompts": "./src/langgraph_mcp/with_planner/with_prompts/graph.py:graph"
+      "assist_with_planner": "./src/langgraph_mcp/with_planner/graph.py:graph"
     },
     "env": ".env"
 }
@@ -26,7 +23,7 @@ This document details how LangGraph is configured and integrated into the projec
 *   **Python Version:** Specifies the target Python version (`3.12`).
 *   **Dependencies:** Indicates project dependencies relevant to LangGraph CLI deployment (`.` means the current project).
 *   **Graphs:** This is the core mapping that defines the available LangGraph graphs and their entry points.
-    *   Each key (e.g., `index_builder`, `assist_with_retriever`) is an identifier for a graph.
-    *   The value specifies the Python file and the graph object within that file (e.g., `./src/langgraph_mcp/with_retriever/index_builder.py:graph` points to the `graph` object in `index_builder.py`).
+    *   Each key (e.g., `assist_with_planner`) is an identifier for a graph.
+    *   The value specifies the Python file and the graph object within that file (e.g., `./src/langgraph_mcp/with_planner/graph.py:graph` points to the `graph` object in `graph.py`).
     *   This allows the LangGraph CLI and API server to discover and serve these specific graphs.
 *   **Environment:** Specifies the environment file (`.env`) to load for configuration variables. 

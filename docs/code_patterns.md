@@ -56,7 +56,7 @@ async def planner(state: State, *, config: RunnableConfig) -> dict[str, list[Bas
 6.  **Invoke Model:** The loaded model's `ainvoke` method is called. `.with_structured_output(PydanticModel)` is frequently used when the LLM is expected to return data matching a specific Pydantic schema (e.g., `PlannerResult`, `ExpertPrompt`, `TaskAssessmentResult`).
 7.  **Prepare State Update:** The node returns a dictionary where keys match the fields in the graph's `State` class. LangGraph uses this dictionary to update the state.
 
-## 2. Loading Language Models (LLMs and Embeddings)
+## 2. Loading Language Models
 
 ### Chat Models
 
@@ -66,18 +66,11 @@ The `src.langgraph_mcp.utils.load_chat_model(fully_specified_name: str)` functio
 *   It parses the provider and model name.
 *   It uses `langchain.chat_models.init_chat_model(model, model_provider=provider)` to instantiate the appropriate LangChain chat model client.
 
-### Embedding Models
-
-For embedding models used in the `with_retriever` strategy, the `src.langgraph_mcp.with_retriever.retriever.make_text_encoder(model: str)` function is used:
-
-*   Similar to `load_chat_model`, it takes a `"provider/model-name"` string (e.g., `"openai/text-embedding-3-large"`).
-*   It uses a `match` statement on the provider to import and instantiate the correct LangChain embedding class (e.g., `langchain_openai.OpenAIEmbeddings`).
-
 ## 3. Interfacing with MCP Servers (`mcp_wrapper.py`)
 
 Interaction with MCP servers is standardized through the `src.langgraph_mcp.mcp_wrapper` module, employing a Strategy Pattern:
 
-*   **Abstract Base Class (`MCPSessionFunction`):** Defines the interface with an `async def __call__(self, server_name: str, session: ClientSession) -> Any:` method.
+*   **Abstract Base Class (`MCPSessionFunction`):** Defines the interface with an `async def __call__(self, server_name: str, env: dict, session: ClientSession) -> Any:` method.
 *   **Concrete Strategy Classes:** Implement `MCPSessionFunction` for specific MCP operations:
     *   `RoutingDescription`: Fetches tools, prompts, and resources to generate a server description.
     *   `GetTools`: Fetches tools and formats them for LangChain/LangGraph use.
@@ -86,9 +79,9 @@ Interaction with MCP servers is standardized through the `src.langgraph_mcp.mcp_
 *   **Unified Executor (`apply` function):**
     *   `async def apply(server_name: str, server_config: dict, fn: MCPSessionFunction) -> Any:`
     *   Takes the server name, its configuration (`server_config`), and an instance of an `MCPSessionFunction` (`fn`).
-    *   Determines whether to connect using `mcp.stdio_client` (for standard MCP servers defined in `mcpServers`) or `mcp.client.streamable_http.streamablehttp_client` (for Smithery-hosted servers defined in `smithery`, identified by the presence of a `url` key in the config).
+    *   Determines whether to connect using `mcp.stdio_client` (for standard MCP servers defined in `mcpServers`) or `mcp.client.streamable_http.streamablehttp_client` (depending on the `transport`).
     *   Establishes the `ClientSession`.
-    *   Calls the strategy instance: `await fn(server_name, session)`.
+    *   Calls the strategy instance: `await fn(server_name, env, session)`.
 
 **Usage within Graph Nodes:**
 
@@ -101,7 +94,7 @@ Nodes needing to interact with an MCP server use this pattern:
 server_name = current_task.expert
 
 # Get server config (e.g., using utils.get_server_config)
-server_config = get_server_config(server_name, configuration.mcp_server_config)
+server_config = configuration.get_server_config(server_name)
 
 # Call the wrapper with the specific action 
 prompts_response = await mcp.apply(
@@ -113,7 +106,7 @@ prompts_response = await mcp.apply(
 # Example from with_planner/graph.py -> call_tool
 tool_call = state.messages[-1].tool_calls[0]
 tool_output = await mcp.apply(
-    current_task.expert, 
+    server_name, 
     server_config, 
     mcp.RunTool(tool_call['name'],**tool_call['args']) # Pass tool name/args
 )
@@ -155,7 +148,7 @@ client.runs.stream(
     thread_id=thread_id,
     assistant_id=assistant_id,
     config=config,
-    command=Command(resume="<received human input here>"
+    command=Command(resume="<received human input here>")
 )
 ```
 
@@ -168,7 +161,9 @@ Accept: application/json
 
 {
   "assistant_id": "{{assistant_id}}",
-  "resume": "<received human input here>",
+  "command": {
+    "resume": "<received human input here>",
+  },
   "config": {..}
 }
 ```

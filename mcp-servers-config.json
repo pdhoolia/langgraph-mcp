@@ -1,64 +1,54 @@
 {
-    "mcpServers": {
-        "weather": {
-            "command": "uv",
-            "description": "Get weather forecasts",
-            "args": [
-                "--directory",
-                "/Users/pdhoolia/fun/weather_service",
-                "run",
-                "weather-service"
-            ],
-            "env": {
-                "OPENWEATHER_API_KEY": "YOUR.OPENWEATHER.API.KEY"
-            }
-        },
-        "sqlite": {
-            "command": "uvx",
-            "description": "Database operations with SQLite, e.g., describe, create, and query tables.",
-            "args": [
-                "mcp-server-sqlite",
-                "--db-path",
-                "test.db"
-            ]
-        },
-        "filesystem": {
-            "command": "npx",
-            "description": "Filesystem operations on your files, e.g., search, copy, move, and delete files.",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                "/Users/pdhoolia/Desktop",
-                "/Users/pdhoolia/fun/langgraph-mcp"
-            ]
-        },
-        "gsuite": {
-            "command": "node",
-            "description": "Gmail and Google calendar operations to list, search, and send emails and calendar invites",
-            "args": ["/Users/pdhoolia/gh/pdhoolia/gsuite-mcp/build/index.js"],
-            "env": {
-                "GOOGLE_CLIENT_ID": "YOUR.GOOGLE.CLIENT.ID",
-                "GOOGLE_CLIENT_SECRET": "YOUR.GOOGLE.CLIENT.SECRET",
-                "GOOGLE_REFRESH_TOKEN": "YOUR.GOOGLE.REFRESH.TOKEN"
-            }
+    "weather": {
+        "transport": "stdio",
+        "command": "uv",
+        "description": "Get weather forecasts",
+        "args": [
+            "--directory",
+            "/Users/pdhoolia/fun/weather_service",
+            "run",
+            "weather-service"
+        ],
+        "env": {
+            "OPENWEATHER_API_KEY": "YOUR.OPENWEATHER.API.KEY"
         }
     },
-    "smithery": {
-        "github": {
-            "url": "wss://server.smithery.ai/@smithery-ai/github/ws",
-            "description": "GitHub operations for code projects, e.g., create, modify or search repositories, issues, and code, or get file or directory contents.",
-            "env": {
-                "githubPersonalAccessToken": "YOUR.GITHUB.PERSONAL.ACCESS.TOKEN"
-            }
+    "sqlite": {
+        "transport": "stdio",
+        "command": "uvx",
+        "description": "Database operations with SQLite, e.g., describe, create, and query tables.",
+        "args": [
+            "mcp-server-sqlite",
+            "--db-path",
+            "test.db"
+        ]
+    },
+    "filesystem": {
+        "transport": "stdio",
+        "command": "npx",
+        "description": "Filesystem operations on your files, e.g., search, copy, move, and delete files.",
+        "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "YOUR.FILESYSTEM.PATH.THAT.YOU.GRANT.ACCESS.TO.THIS.SERVER"
+        ]
+    },
+    "gmail": {
+        "transport": "streamable_http",
+        "env": {
+            "CLIENT_ID": "YOUR.GOOGLE.CLIENT.ID",
+            "CLIENT_SECRET": "YOUR.GOOGLE.CLIENT.SECRET",
+            "REFRESH_TOKEN": "YOUR.GOOGLE.REFRESH.TOKEN"
         },
-        "gmail": {
-            "url": "wss://server.smithery.ai/@rishipradeep-think41/gsuite-mcp/ws",
-            "description": "Gmail and Google calendar operations to list, search, and send emails and calendar invites",
-            "env": {
-                "googleClientId": "YOUR.GOOGLE.CLIENT.ID",
-                "googleClientSecret": "YOUR.GOOGLE.CLIENT.SECRET",
-                "googleRefreshToken": "YOUR.GOOGLE.REFRESH.TOKEN"
-            }
-        }
+        "url": "https://server.smithery.ai/@HeurisTech/gmail-mcp-server/mcp",
+        "description": "Provides tools for common operations with Gmail (e.g., send_mail)"
+    },
+    "contract_manufacturers": {
+        "transport": "streamable_http",
+        "env": {
+            "OPENAI_API_KEY": "YOUR.OPENAI.API.KEY"
+        },
+        "url": "https://server.smithery.ai/@esxr/contract_manufacturers_mcp/mcp",
+        "description": "list or get the requirements for manufacturers for various products"
     }
 }
