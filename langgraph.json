@@ -3,6 +3,12 @@
     "version": "1.0.0",
     "python_version": "3.12",
     "dependencies": ["."],
+    "dockerfile_lines": [
+        "RUN apt-get update && apt-get install -y curl",
+        "RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs",
+        "RUN npm install -g playwright",
+        "RUN playwright install --with-deps chromium"
+    ],
     "graphs": {
       "assist_with_planner": "./src/langgraph_mcp/with_planner/graph.py:graph"
     },
