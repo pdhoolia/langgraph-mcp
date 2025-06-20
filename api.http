@@ -1,6 +1,7 @@
 # @model = llama-4-scout-17b-16e-instruct
 @model = llama-3.3-70b-instruct
 
+
 ### Disambiguate
 POST http://localhost:1234/v1/chat/completions
 Content-Type: application/json
@@ -266,5 +267,166 @@ Content-Type: application/json
         }
       }
     }
+  ]
+}
+
+
+###############################################################################
+# LangGraph APIs
+###############################################################################
+@lg_api_server=http://127.0.0.1:2024
+@assistant_id=11111111-1111-1111-1111-111111111111
+@thread_id=11111111-1111-1111-1111-111111111111
+
+###############################################################################
+### Create Assistant
+POST {{lg_api_server}}/assistants
+Content-Type: application/json
+Accept: application/json
+
+{ "graph_id": "assist_with_planner",
+  "assistant_id": "{{assistant_id}}",
+  "if_exists": "raise",
+  "config": {
+    "configurable": {
+      "mcp_server_config": {
+        "weather": {
+          "transport": "stdio",
+          "command": "uv",
+          "description": "Get weather forecasts",
+          "args": [
+            "--directory",
+            "/Users/pdhoolia/gh/pdhoolia/weather-service",
+            "run",
+            "weather-service"
+          ],
+          "env": {
+            "OPENWEATHER_API_KEY": "{{OPENWEATHER_API_KEY}}"
+          }
+        },
+        "sqlite": {
+          "transport": "stdio",
+          "command": "uvx",
+          "description": "Database operations with SQLite, e.g., describe, create, and query tables.",
+          "args": [
+            "mcp-server-sqlite",
+            "--db-path",
+            "test.db"
+          ]
+        },
+        "filesystem": {
+          "transport": "stdio",
+          "command": "npx",
+          "description": "Filesystem operations on your files, e.g., search, copy, move, and delete files.",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-filesystem",
+            "/Users/pdhoolia/Desktop"
+          ]
+        },
+        "claims": {
+          "transport": "stdio",
+          "command": "uv",
+          "description": "Help customers of Elevance Health, find any details of their claims including those of their dependents",
+          "args": [
+            "--directory",
+            "/Users/pdhoolia/ghe/elevance/claims",
+            "run",
+            "server.py"
+          ],
+          "env": {
+            "COUCHDB_UNAME": "{{COUCHDB_UNAME}}",
+            "COUCHDB_PWD": "{{COUCHDB_PWD}}",
+            "COUCHDB_HOST": "{{COUCHDB_HOST}}",
+            "COUCHDB_PORT": "{{COUCHDB_PORT}}"
+          }
+        },
+        "gmail": {
+          "transport": "streamable_http",
+          "env": {
+            "CLIENT_ID": "{{GOOGLE_CLIENT_ID}}",
+            "CLIENT_SECRET": "{{GOOGLE_CLIENT_SECRET}}",
+            "REFRESH_TOKEN": "{{GOOGLE_REFRESH_TOKEN}}"
+          },
+          "url": "http://localhost:8000/mcp",
+          "description": "Provides tools for common operations with Gmail (e.g., send_mail)"
+        },
+        "contract_manufacturers": {
+          "transport": "streamable_http",
+          "env": {
+            "OPENAI_API_KEY": "{{OPENAI_API_KEY}}"
+          },
+          "url": "https://server.smithery.ai/@esxr/contract_manufacturers_mcp/mcp",
+          "description": "list or get the requirements for Manufacturers for various products"
+        },
+        "playwright": {
+          "command": "npx",
+          "args": [
+            "@playwright/mcp@latest"
+          ],
+          "description": "Use for browser based interaction or automation tasks"
+        }
+      },
+      "planner_system_prompt": "You are an intelligent assistant that helps *plan* and *track* a sequence of tasks to be done by available experts based on ongoing conversation with the user.\n\nThe *Plan* consists of a sequence of *tasks*. Each *Task* has the *expert* name, and a *task* description. The tasks should be completely grounded into the experts that are available (specified below). If none of the experts is applicable for the user request, you should just return an empty plan.\n\nThe *current plan* being executed is also available to you (specified below). You may *continue* with the current plan (if the current plan still holds); or *replace* the plan in case the user has digressed (i.e., switched topics).\n\n\n\nFollowing experts are available (Name: description):\n{experts}\n\n\nCurrent Plan:\n```json\n{plan}\n```\n\nUnderstand the current plan, decide if you should continue with it, or replace it. Output the choice you make in the `decision` attribute. If you decide to continue the plan, also output the index of the task (in the plan) to execute next. For plan replacement decision, usually the first task (index 0) will be executed. Use the conversation-so-far to judge which tasks have already been executed to evaluate the array index of the expert task to execute next.\n\nAsk the user for clarification in case of any ambiguity, or provide the user with a clarification if user query cannnot be addressed with available experts. \n\nOutput the result of your evaluation as a Json Object using the following schema:\n```json\n{{\n    \"decision\": \"<continue | replace>\",\n    \"plan\": [\n        {{\"expert\": \"<expert-name>\": \"task\": \"very brief description of the task\"}}\n    ],\n    \"next_task\": <index of the task to execute (in the plan)>,\n    \"clarification\": \"a message for user in case any clarification is needed to resolve some ambiguity\" // optional\n}}\n```\n\nSystem time: {system_time}\n",
+      "planner_model": "openai/gpt-4o",
+      "orchestrate_system_prompt": "You are an intelligent assistant coordinating a complex task with expert tools.\n\nYou are provided with:\n- The conversation so far\n- The current plan to address user queries\n- Current task description\n- The tools available from the expert for that task\n- Optionally: any special instructions that the expert may have for this task\n\nYour job is to decide and perform one of these actions:\n- Select a tool to execute, to progress the conversation\n- Or, ask the user for more information in case any mandatory inputs for an applicable tool are not yet known. Start your message with \"I need more information from you\" to signal that human input is required.\n- Or, indicate that the current expert does not know how to proceed by tagging your response with: {idk_tag}\n\nCurrent Plan:\n```json\n{plan}\n```\n\nCurrent Task:\n```\n{task}\n```\n\nSpecial instructions for the task: {special_instructions}\n\nSystem time: {system_time}\n",
+      "orchestrate_model": "openai/gpt-4o",
+      "task_assessment_system_prompt": "You are an intelligent assistant that assesses whether the current task in a plan has been completed based on the conversation history.\n\nYou need to analyze the conversation, attend only to the current task (not the entire plan) and determine if just that current task has been successfully completed and we are ready to move on to the next task of the plan.\n\nCurrent Task:\n```\n{task}\n```\n\nAnalyze the conversation and determine if the current task is complete. Provide your assessment as a JSON object with the following schema:\n\n```json\n{{\n  \"is_completed\": <true|false>,\n  \"explanation\": \"<brief explanation of your assessment>\",\n  \"confidence\": <confidence-score-between-0-and-1>\n}}\n```\n\nWhere:\n- \"is_completed\": Boolean indicating if the task is complete\n- \"explanation\": Your reasoning for this assessment\n- \"confidence\": How confident you are in this assessment (0-1)\n\nSystem time: {system_time}\n",
+      "task_assessment_model": "openai/gpt-4o",
+      "generate_response_system_prompt": "You are an intelligent assistant tasked with generating a final response after completing a series of tasks.\n\nYou are provided with:\n- The complete conversation history showing all tasks executed and their results\n\nYour job is to:\n1. Review the conversation and task results\n2. Generate a clear, concise summary of what was accomplished\n3. Highlight any important outcomes or findings\n4. Address any remaining user concerns or questions\n5. Provide a natural conclusion to the conversation\n\nKeep in mind:\n- Be professional but conversational in tone\n- Focus on the key results and achievements\n- Acknowledge any limitations or issues encountered\n- Make sure the response provides closure to the user's original request\n\nSystem time: {system_time}\n",
+      "generate_response_model": "openai/gpt-4o"
+    }
+  },
+  "metadata": {},
+  "name": "default-config"
+}
+
+### Get Assistant
+GET {{lg_api_server}}/assistants/{{assistant_id}}
+Accept: application/json
+
+### Delete Assistant
+DELETE {{lg_api_server}}/assistants/{{assistant_id}}
+
+###############################################################################
+### Create Thread
+POST {{lg_api_server}}/threads
+Content-Type: application/json
+Accept: application/json
+
+{
+    "thread_id": "{{thread_id}}",
+    "metadata": {},
+    "if_exists": "raise"
+}
+
+### Delete Thread
+DELETE {{lg_api_server}}/threads/{{thread_id}}
+
+### Get Thread State
+GET {{lg_api_server}}/threads/{{thread_id}}/state
+Accept: application/json
+
+### List Thread Runs
+GET {{lg_api_server}}/threads/{{thread_id}}/runs
+Accept: application/json
+
+### Create Run, Stream Wait Output​
+POST {{lg_api_server}}/threads/{{thread_id}}/runs/wait
+Accept: application/json
+Content-Type: application/json
+
+{
+  "assistant_id": "{{assistant_id}}",
+  "input": {
+    "messages": [
+      {
+        "content": "What is the weather today in Brisbane QLD?",
+        "type": "human"
+      }
+    ]
+  },
+  "stream_mode": [
+    "values"
   ]
 }

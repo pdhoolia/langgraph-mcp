@@ -15,6 +15,7 @@ dependencies = [
     "langchain-core",
     "langchain-openai",
     "langchain-ollama",
+    "langchain-mcp-adapters",
     "langgraph",
     "mcp[cli]",
     "openai",
@@ -24,6 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["debugpy", "mypy", "ruff"]
+test = ["pytest", "langgraph-sdk", "requests"]
 
 [build-system]
 requires = ["setuptools", "wheel"]

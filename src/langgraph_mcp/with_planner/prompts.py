@@ -59,8 +59,6 @@ Current Task:
 {task}
 ```
 
-Special instructions for the task: {special_instructions}
-
 System time: {system_time}
 """ 
 
