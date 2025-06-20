@@ -54,3 +54,11 @@ This documentation provides details necessary for Large Language Models (LLMs) a
     ```bash
     cp env.example .env
     ```
+
+5. Run tests
+
+    ```bash
+    source .venv/bin/activate
+    pip install -e ".[test]"
+    pytest tests/test_assistant_with_planner.py
+    ```
