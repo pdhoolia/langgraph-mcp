@@ -5,7 +5,6 @@ import time
 import requests
 from langgraph_sdk import get_sync_client
 
-
 # Configuration for MCP servers used in the tests
 MCP_SERVER_CONFIG = {
     "github": {
@@ -49,20 +48,14 @@ def langgraph_server():
     process.wait()
 
 def test_github_repository_search(langgraph_server):
-    """Tests searching for a GitHub repository."""
+    """Tests searching for a GitHub repository with planner_style_agent."""
 
     client = get_sync_client(url=langgraph_server)
-    
-    # Create an assistant with the specified mcp_server_config
     assistant = client.assistants.create(
-        graph_id="assist_with_planner",
+        graph_id="planner_style_agent",
         config={"configurable": {"mcp_server_config": MCP_SERVER_CONFIG}},
     )
-    
-    # Create a new thread
     thread = client.threads.create()
-    
-    # Stream the run and collect events
     events = client.runs.stream(
         thread["thread_id"],
         assistant["assistant_id"],
@@ -77,43 +70,35 @@ def test_github_repository_search(langgraph_server):
     for event in events:
         if event.event != "updates":
             continue
-        
         if planner_data := event.data.get("planner"):
             if planner_result := planner_data.get("planner_result"):
                 if plan := planner_result.get("plan"):
                     if len(plan) == 1 and plan[0]["expert"] == "github":
                         plan_made = True
-        elif orchestrate_tools := event.data.get("orchestrate_tools"):
-            if messages := orchestrate_tools.get("messages"):
+        if execute_task_data := event.data.get("execute_task"):
+            if messages := execute_task_data.get("messages"):
                 for msg in messages:
                     if msg["type"] == "ai":
                         if tool_calls := msg.get("tool_calls"):
                             tool_selected = tool_calls[0]["name"]
-        elif call_tool := event.data.get("call_tool"):
-            if messages := call_tool.get("messages"):
+        if tools_data := event.data.get("tools"):
+            if messages := tools_data.get("messages"):
                 for msg in messages:
                     if msg["type"] == "tool":
                         tool_output = msg.get("content")
-
     assert plan_made, "The agent did not create the correct plan."
     assert tool_selected == "search_repositories", "The agent did not select the 'search_repositories' tool."
     assert tool_output and 'pdhoolia/langgraph-se-agent' in tool_output
     assert tool_output and 'Software & quality agent built as a set of langgraphs' in tool_output
 
 def test_smithery_server_search(langgraph_server):
-    """Tests searching for a server on Smithery."""
+    """Tests searching for a server on Smithery with planner_style_agent."""
     client = get_sync_client(url=langgraph_server)
-    
-    # Create an assistant with the specified mcp_server_config
     assistant = client.assistants.create(
-        graph_id="assist_with_planner",
+        graph_id="planner_style_agent",
         config={"configurable": {"mcp_server_config": MCP_SERVER_CONFIG}},
     )
-    
-    # Create a new thread
     thread = client.threads.create()
-    
-    # Stream the run and collect events
     events = client.runs.stream(
         thread["thread_id"],
         assistant["assistant_id"],
@@ -128,20 +113,19 @@ def test_smithery_server_search(langgraph_server):
     for event in events:
         if event.event != "updates":
             continue
-        
         if planner_data := event.data.get("planner"):
             if planner_result := planner_data.get("planner_result"):
                 if plan := planner_result.get("plan"):
                     if len(plan) == 1 and plan[0]["expert"] == "smithery":
                         plan_made = True
-        elif orchestrate_tools := event.data.get("orchestrate_tools"):
-            if messages := orchestrate_tools.get("messages"):
+        if execute_task_data := event.data.get("execute_task"):
+            if messages := execute_task_data.get("messages"):
                 for msg in messages:
                     if msg["type"] == "ai":
                         if tool_calls := msg.get("tool_calls"):
                             tool_selected = tool_calls[0]["name"]
-        elif call_tool := event.data.get("call_tool"):
-            if messages := call_tool.get("messages"):
+        if tools_data := event.data.get("tools"):
+            if messages := tools_data.get("messages"):
                 for msg in messages:
                     if msg["type"] == "tool":
                         tool_output = msg.get("content")
