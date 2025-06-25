@@ -15,6 +15,8 @@ from langgraph_mcp.state import InputState
 from langgraph_mcp.mcp_wrapper import apply, GetTools, RunTool
 from langgraph_mcp.utils import load_chat_model
 
+from langgraph_mcp.mcp_react_graph import make_graph
+
 from langgraph_mcp.planner_style.config import Configuration
 from langgraph_mcp.planner_style.state import PlannerResult, State
 
@@ -22,6 +24,8 @@ from langgraph_mcp.planner_style.state import PlannerResult, State
 ASK_USER_FOR_INFO_TAG = "[ASK_USER]"
 TASK_COMPLETE_TAG = "[TASK_COMPLETE]"
 IDK_TAG = "[IDK]"
+
+EXPERTS_REQUIRING_REACT_SUBGRAPH = ["playwright"]
 
 
 async def planner(state: State, *, config: RunnableConfig) -> Dict[str, Any]:
@@ -88,6 +92,16 @@ async def execute_task(state: State, *, config: RunnableConfig) -> Dict[str, Any
     tools = await apply(task_description, server_cfg, GetTools()) if server_cfg else []  # expert tools list
     if not tools:
         return {"messages": [AIMessage(content=f'No tools available with the expert {task_expert}.')]}
+    
+    #######################################################################
+    if task_expert in EXPERTS_REQUIRING_REACT_SUBGRAPH:
+        async with make_graph(cfg.execute_task_model.replace('/', ':'), task_expert, server_cfg) as subgraph:
+            subgraph_result = await subgraph.ainvoke({"messages": state.messages})
+            return {
+                "messages": subgraph_result["messages"][len(state.messages):],
+                "task_completed": True
+            }
+    #######################################################################
     
     model = load_chat_model(cfg.execute_task_model)
     prompt = ChatPromptTemplate.from_messages([
