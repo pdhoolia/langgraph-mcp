@@ -25,7 +25,7 @@ ASK_USER_FOR_INFO_TAG = "[ASK_USER]"
 TASK_COMPLETE_TAG = "[TASK_COMPLETE]"
 IDK_TAG = "[IDK]"
 
-EXPERTS_REQUIRING_REACT_SUBGRAPH = ["playwright"]
+EXPERTS_NEEDING_MULTI_GRAPH_RUNS_WITHIN_AN_MCP_SESSION = ["playwright"]
 
 
 async def planner(state: State, *, config: RunnableConfig) -> Dict[str, Any]:
@@ -94,7 +94,7 @@ async def execute_task(state: State, *, config: RunnableConfig) -> Dict[str, Any
         return {"messages": [AIMessage(content=f'No tools available with the expert {task_expert}.')]}
     
     #######################################################################
-    if task_expert in EXPERTS_REQUIRING_REACT_SUBGRAPH:
+    if task_expert in EXPERTS_NEEDING_MULTI_GRAPH_RUNS_WITHIN_AN_MCP_SESSION:
         async with make_graph(cfg.execute_task_model.replace('/', ':'), task_expert, server_cfg) as subgraph:
             subgraph_result = await subgraph.ainvoke({"messages": state.messages})
             return {
